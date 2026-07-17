@@ -1227,6 +1227,12 @@ select:focus-visible {
   line-height: 22px;
 }
 
+.tencent-leqi-state.success .tencent-success-merchant {
+  margin-top: 10px;
+  color: var(--semi-color-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
 .tencent-primary-action {
   width: 100%;
   min-height: 46px;
