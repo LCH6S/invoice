@@ -912,20 +912,24 @@ function renderTencentLeqiWorkspace() {
       <div class="tencent-leqi-state success">
         <div class="tencent-state-symbol"><img src="./assets/circle-check-big.svg" alt="" /></div>
         <h2>腾讯乐企联用已开通</h2>
-        <p>当前税号已具备真实开票能力</p>
+        <p class="tencent-success-merchant">微信商户号 ${escapeHtml(state.wechatMerchantNo)}</p>
       </div>
     `;
   }
 
   return `
     <div class="tencent-leqi-workspace">
-      <div class="tencent-leqi-heading">
-        <div>
-          <h1>腾讯乐企联用</h1>
-          <p>商户号 ${escapeHtml(state.wechatMerchantNo)}</p>
-        </div>
-        <span class="status-tag ${statusMeta.tagClass}">${statusMeta.label}</span>
-      </div>
+      ${
+        complete
+          ? ""
+          : `<div class="tencent-leqi-heading">
+              <div>
+                <h1>腾讯乐企联用</h1>
+                <p>商户号 ${escapeHtml(state.wechatMerchantNo)}</p>
+              </div>
+              <span class="status-tag ${statusMeta.tagClass}">${statusMeta.label}</span>
+            </div>`
+      }
       <div class="tencent-leqi-main">${mainContent}</div>
     </div>
   `;
