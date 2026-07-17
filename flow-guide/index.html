@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Cpath d='M18 15h28v34l-5-3-5 3-5-3-5 3-5-3-3 2V15z' fill='%23fff'/%3E%3Cpath d='M24 24h16M24 31h16M24 38h10' stroke='%232563eb' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <title>统一进件腾讯乐企联用｜页面流程与功能说明</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #667085;
+      --line: #e5e7eb;
+      --panel: #ffffff;
+      --canvas: #f5f7fa;
+      --leqi: #f59e0b;
+      --leqi-soft: #fff7df;
+      --rpa: #2563eb;
+      --rpa-soft: #edf4ff;
+      --danger: #dc2626;
+      --danger-soft: #fff0f0;
+      --success: #15803d;
+      --success-soft: #ecfdf3;
+      --common: #5b6472;
+      --common-soft: #f2f4f7;
+      --shadow: 0 14px 36px rgba(16, 24, 40, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.62;
+    }
+    button, a { font: inherit; }
+    a { color: inherit; }
+
+    .cover {
+      color: #fff;
+      background:
+        radial-gradient(circle at 80% 15%, rgba(245, 158, 11, .24), transparent 28rem),
+        radial-gradient(circle at 20% 95%, rgba(37, 99, 235, .24), transparent 30rem),
+        #111827;
+      padding: 72px max(24px, calc((100vw - 1180px) / 2));
+    }
+    .eyebrow { margin: 0 0 10px; color: #cbd5e1; font-size: 14px; letter-spacing: .08em; }
+    .cover h1 { max-width: 850px; margin: 0; font-size: clamp(34px, 5vw, 58px); line-height: 1.12; }
+    .cover .lead { max-width: 760px; margin: 22px 0 0; color: #d5dbea; font-size: 18px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .meta span { padding: 7px 12px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(255,255,255,.06); font-size: 13px; }
+
+    .shell { width: min(1320px, calc(100% - 32px)); margin: 0 auto; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 28px; align-items: start; }
+    .side {
+      position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow: auto;
+      margin-top: 28px; padding: 18px; border: 1px solid var(--line); border-radius: 16px;
+      background: rgba(255,255,255,.94); box-shadow: var(--shadow); backdrop-filter: blur(12px);
+    }
+    .side strong { display: block; margin-bottom: 9px; font-size: 14px; }
+    .side a { display: block; padding: 7px 9px; border-radius: 8px; color: var(--muted); font-size: 13px; text-decoration: none; }
+    .side a:hover, .side a.active { color: var(--ink); background: #f2f4f7; }
+    .side .nav-leqi.active { color: #9a6700; background: var(--leqi-soft); }
+    .side .nav-rpa.active { color: #174ea6; background: var(--rpa-soft); }
+    .side .nav-exception.active { color: #b42318; background: var(--danger-soft); }
+    .side hr { margin: 12px 0; border: 0; border-top: 1px solid var(--line); }
+
+    main { min-width: 0; padding: 28px 0 88px; display: flex; flex-direction: column; }
+    #overview { order: 1; }
+    #onboarding { order: 2; }
+    #leqi { order: 3; }
+    #exceptions { order: 4; }
+    #rpa { order: 5; }
+    #index { order: 6; }
+    section { scroll-margin-top: 24px; margin-bottom: 48px; }
+    .section-head { margin-bottom: 18px; }
+    .section-head h2 { margin: 0; font-size: clamp(25px, 3vw, 34px); }
+    .section-head p { max-width: 780px; margin: 7px 0 0; color: var(--muted); }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .summary-card, .flow-panel, .page-card, .index-table-wrap { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
+    .summary-card { padding: 20px; }
+    .summary-card b { display: block; margin-bottom: 7px; }
+    .summary-card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+    .legend span, .tag { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 650; }
+    .legend i { width: 9px; height: 9px; border-radius: 50%; }
+    .legend .common i { background: var(--common); }
+    .legend .leqi i { background: var(--leqi); }
+    .legend .rpa i { background: var(--rpa); }
+    .legend .danger i { background: var(--danger); }
+    .legend .success i { background: var(--success); }
+
+    .flow-panel { padding: 22px; overflow: hidden; }
+    .flow-row { display: flex; align-items: stretch; gap: 8px; overflow-x: auto; padding: 7px 2px 13px; }
+    .flow-node { flex: 0 0 142px; min-height: 78px; display: grid; align-content: center; padding: 12px; border: 1px solid #d0d5dd; border-radius: 12px; background: #fff; text-decoration: none; transition: transform .18s, box-shadow .18s; }
+    .flow-node:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(16,24,40,.09); }
+    .flow-node small { color: var(--muted); }
+    .flow-node.leqi { border-color: #f8cf75; background: var(--leqi-soft); }
+    .flow-node.rpa { border-color: #9bc0ff; background: var(--rpa-soft); }
+    .flow-node.success { border-color: #86d49e; background: var(--success-soft); }
+    .arrow { flex: 0 0 22px; display: grid; place-items: center; color: #98a2b3; font-size: 22px; }
+    .branch-note { margin: 8px 0 0; padding: 12px 14px; border-radius: 10px; background: #f8fafc; color: var(--muted); font-size: 13px; }
+
+    .page-list { display: grid; gap: 22px; }
+    .page-card { overflow: hidden; scroll-margin-top: 24px; }
+    .page-card.common { border-top: 4px solid var(--common); }
+    .page-card.leqi { border-top: 4px solid var(--leqi); }
+    .page-card.rpa { border-top: 4px solid var(--rpa); }
+    .page-card.exception { border-top: 4px solid var(--danger); }
+    .page-card.success { border-top: 4px solid var(--success); }
+    .page-card-head { display: flex; justify-content: space-between; gap: 18px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+    .page-card-head h3 { margin: 2px 0 0; font-size: 22px; }
+    .page-card-head p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+    .code { flex: 0 0 auto; color: #475467; font: 700 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .tag.common { color: #475467; background: var(--common-soft); }
+    .tag.leqi { color: #8a5b00; background: var(--leqi-soft); }
+    .tag.rpa { color: #174ea6; background: var(--rpa-soft); }
+    .tag.danger { color: #b42318; background: var(--danger-soft); }
+    .tag.success { color: #067647; background: var(--success-soft); }
+
+    .page-card-body { display: grid; grid-template-columns: minmax(280px, 38%) 1fr; gap: 24px; padding: 22px; align-items: start; }
+    .shots { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); gap: 12px; }
+    .shot { margin: 0; }
+    .shot-button { display: block; width: 100%; padding: 0; border: 0; border-radius: 18px; background: #eef1f5; cursor: zoom-in; overflow: hidden; box-shadow: 0 8px 20px rgba(16,24,40,.13); }
+    .shot img { display: block; width: 100%; height: auto; }
+    .shot figcaption { margin-top: 7px; color: var(--muted); font-size: 12px; text-align: center; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .info { padding: 15px; border-radius: 12px; background: #f8fafc; }
+    .info.wide { grid-column: 1 / -1; }
+    .info h4 { margin: 0 0 6px; font-size: 14px; }
+    .info p, .info ul { margin: 0; color: #475467; font-size: 14px; }
+    .info ul { padding-left: 18px; }
+    .route { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 9px; margin-top: 14px; padding: 14px; border: 1px dashed #cbd5e1; border-radius: 12px; color: #475467; font-size: 13px; }
+    .route b { color: var(--ink); }
+    .route .next { text-align: right; }
+
+    .state-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .state-grid .page-card-body { grid-template-columns: 42% 1fr; }
+    .state-grid .info-grid { grid-template-columns: 1fr; }
+
+    .index-table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: #475467; background: #f8fafc; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td a { color: #175cd3; text-decoration: none; }
+    .footnote { margin: 22px 0 0; color: var(--muted); font-size: 13px; }
+
+    dialog { width: min(92vw, 780px); max-height: 94vh; padding: 0; border: 0; border-radius: 18px; background: transparent; }
+    dialog::backdrop { background: rgba(15, 23, 42, .82); backdrop-filter: blur(5px); }
+    .lightbox-inner { position: relative; display: grid; place-items: center; max-height: 94vh; padding: 42px 18px 18px; border-radius: 18px; background: #111827; }
+    .lightbox-inner img { max-width: 100%; max-height: calc(94vh - 60px); object-fit: contain; border-radius: 12px; }
+    .lightbox-close { position: absolute; top: 10px; right: 12px; width: 34px; height: 34px; border: 0; border-radius: 50%; color: #fff; background: rgba(255,255,255,.15); cursor: pointer; }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .side { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; margin-top: 0; max-height: none; padding: 10px; border-radius: 0 0 14px 14px; overflow-x: auto; }
+      .side strong, .side hr { display: none; }
+      .side a { white-space: nowrap; }
+      main { padding-top: 22px; }
+      .state-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .cover { padding-top: 48px; padding-bottom: 48px; }
+      .summary-grid, .page-card-body, .state-grid .page-card-body { grid-template-columns: 1fr; }
+      .info-grid { grid-template-columns: 1fr; }
+      .info.wide { grid-column: auto; }
+      .shots { width: min(100%, 430px); margin: 0 auto; }
+      .page-card-head { padding: 17px; }
+      .page-card-body { padding: 17px; }
+      .route { grid-template-columns: 1fr; }
+      .route .arrow { display: none; }
+      .route .next { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <header class="cover" id="top">
+    <p class="eyebrow">UNIFIED ONBOARDING · TENCENT LEQI</p>
+    <h1>统一进件开通流程<br>与页面功能说明</h1>
+    <p class="lead">面向产品、研发、测试评审，以腾讯乐企联用开通为主线，详细说明统一进件页面、授权状态与异常恢复；既有 RPA 流程仅作简要说明。</p>
+    <div class="meta">
+      <span>版本：腾讯乐企 MVP</span><span>更新日期：2026-07-17</span><span>范围：统一进件</span><span>交付：离线 HTML</span>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="side" aria-label="页面目录">
+      <strong>文档目录</strong>
+      <a href="#overview">01 流程总览</a>
+      <a href="#onboarding">02 统一进件起点</a>
+      <a class="nav-leqi" href="#leqi">03 乐企联用主流程</a>
+      <a class="nav-exception" href="#exceptions">04 异常与恢复</a>
+      <a class="nav-rpa" href="#rpa">05 RPA 简述</a>
+      <a href="#index">06 页面索引</a>
+      <hr>
+      <a href="#top">返回顶部</a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <div class="section-head">
+          <h2>01 · 流程总览</h2>
+          <p>本文从统一进件任务开始。加油站使用当前营业执照主体时进入腾讯乐企联用；不满足乐企条件时沿用既有 RPA 流程。</p>
+        </div>
+        <div class="summary-grid">
+          <article class="summary-card"><b>本次主线</b><p>统一进件新增腾讯乐企联用能力，重点评审扫码授权、状态查询和失败恢复。</p></article>
+          <article class="summary-card"><b>适用条件</b><p>企业商户、加油站行业，并使用收钱吧营业执照主体作为开票主体。</p></article>
+          <article class="summary-card"><b>范围边界</b><p>不说明 CRM 门店和额度激活流程；RPA 既有流程本次没有改动。</p></article>
+        </div>
+        <div class="legend" aria-label="流程图例">
+          <span class="common"><i></i>统一进件</span><span class="leqi"><i></i>腾讯乐企</span><span class="rpa"><i></i>既有 RPA</span><span class="danger"><i></i>异常/恢复</span><span class="success"><i></i>完成</span>
+        </div>
+        <div class="flow-panel">
+          <h3>统一进件起点</h3>
+          <div class="flow-row">
+            <a class="flow-node" href="#u01"><b>U01 开通任务</b><small>进入统一进件</small></a><span class="arrow">→</span>
+            <a class="flow-node" href="#u02"><b>U02 主体确认</b><small>确认当前主体</small></a>
+          </div>
+          <h3>腾讯乐企联用主流程</h3>
+          <div class="flow-row">
+            <a class="flow-node leqi" href="#l01"><b>L01 联用工作台</b><small>开始授权</small></a><span class="arrow">→</span>
+            <a class="flow-node leqi" href="#l02"><b>L02 扫码授权</b><small>等待确认</small></a><span class="arrow">→</span>
+            <a class="flow-node leqi" href="#l03"><b>L03 开通处理中</b><small>异步执行</small></a><span class="arrow">→</span>
+            <a class="flow-node leqi" href="#l04"><b>L04 渠道完成</b><small>进入票面配置</small></a><span class="arrow">→</span>
+            <a class="flow-node leqi" href="#l05"><b>L05 销方信息</b><small>核对基础信息</small></a><span class="arrow">→</span>
+            <a class="flow-node leqi" href="#l06"><b>L06 开票项目</b><small>确认默认项目</small></a><span class="arrow">→</span>
+            <a class="flow-node success" href="#l07"><b>L07 开通完成</b><small>形成开通结果</small></a>
+          </div>
+          <p class="branch-note"><b>既有 RPA 分支：</b>不使用当前营业执照主体、无营业执照或行业不命中腾讯乐企规则时，继续走原 RPA 进件流程。本次不调整其页面、字段和处理逻辑。</p>
+        </div>
+      </section>
+
+      <section id="onboarding">
+        <div class="section-head"><h2>02 · 统一进件起点</h2><p>从数电票开通任务进入统一进件，先确认开票主体，再由系统按主体与行业规则确定开通方式。</p></div>
+        <div class="page-list">
+          <article class="page-card common" id="u01">
+            <div class="page-card-head"><div><span class="tag common">统一进件</span><h3>数电票开通任务</h3><p>以任务清单承接主体确认、腾讯乐企开通和开票信息配置。</p></div><span class="code">U01</span></div>
+            <div class="page-card-body">
+              <figure class="shot"><button class="shot-button"><img src="screenshots/onboarding-home-initial.png" alt="数电票开通任务首页截图"></button><figcaption>初始任务状态</figcaption></figure>
+              <div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>给用户一个可恢复、可追踪的统一进件工作台。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示任务完成度</li><li>按顺序进入未完成任务</li><li>回看已完成任务</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>前置任务未完成时，后置任务不可推进；腾讯乐企开通完成后解锁销方信息和开票项目。</p></div></div><div class="route"><span><b>本文起点：</b>进入统一进件</span><span class="arrow">→</span><span class="next"><b>操作：</b>进入“确认开票主体” → U02</span></div></div>
+            </div>
+          </article>
+
+          <article class="page-card common" id="u02">
+            <div class="page-card-head"><div><span class="tag common">关键分支</span><h3>确认开票主体</h3><p>确认是否使用营业执照识别出的当前企业主体。</p></div><span class="code">U02</span></div>
+            <div class="page-card-body">
+              <figure class="shot"><button class="shot-button"><img src="screenshots/subject-confirm.png" alt="确认开票主体截图"></button><figcaption>当前主体确认</figcaption></figure>
+              <div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>确认腾讯乐企开通所使用的开票主体。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示营业执照识别出的企业名称与税号</li><li>选择使用/不使用当前主体</li></ul></div><div class="info wide"><h4>分流规则</h4><p>企业加油站选择使用当前主体 → L01；不使用当前主体、无营业执照或行业不命中规则 → 进入既有 RPA 流程。</p></div></div><div class="route"><span><b>前置：</b>U01</span><span class="arrow">→</span><span class="next"><b>主流程：</b>使用当前主体 → L01</span></div></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="leqi">
+        <div class="section-head"><h2>03 · 腾讯乐企联用主流程</h2><p>适用于当前 MVP 的企业加油站场景：微信扫码完成授权，系统异步开通后进入票面信息配置。</p></div>
+        <div class="page-list">
+          <article class="page-card leqi" id="l01">
+            <div class="page-card-head"><div><span class="tag leqi">乐企联用</span><h3>乐企联用工作台</h3><p>展示开通步骤、当前状态和操作指引入口。</p></div><span class="code">L01</span></div>
+            <div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/leqi-workspace-initial.png" alt="乐企联用工作台截图"></button><figcaption>未开始</figcaption></figure><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>解释授权方式并发起开通。</p></div><div class="info"><h4>核心功能</h4><ul><li>查看三步开通说明</li><li>查看操作指引</li><li>生成授权二维码</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>二维码由当前开票主体生成；未扫码前允许返回，生成后应保留任务状态。</p></div></div><div class="route"><span><b>前置：</b>U02 使用当前主体</span><span class="arrow">→</span><span class="next"><b>操作：</b>开始授权 → L02</span></div></div></div>
+          </article>
+
+          <article class="page-card leqi" id="l02">
+            <div class="page-card-head"><div><span class="tag leqi">乐企联用</span><h3>微信扫码授权</h3><p>生成二维码后等待企业用户在微信侧完成授权确认。</p></div><span class="code">L02</span></div>
+            <div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/leqi-qr-generated.png" alt="微信扫码授权二维码截图"></button><figcaption>二维码已生成</figcaption></figure><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>让有权限的用户完成跨端授权。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示授权二维码</li><li>展示二维码状态和操作提示</li><li>支持重新获取</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>二维码应有有效期；授权成功后自动进入开通处理。扫码人需具备企业侧相应权限，具体权限口径待生产方案确认。</p></div></div><div class="route"><span><b>前置：</b>L01 开始授权</span><span class="arrow">→</span><span class="next"><b>微信确认：</b>成功 → L03；失败 → X02</span></div></div></div>
+          </article>
+
+          <article class="page-card leqi" id="l03">
+            <div class="page-card-head"><div><span class="tag leqi">乐企联用</span><h3>乐企开通处理中</h3><p>授权完成后展示后台异步任务的当前阶段。</p></div><span class="code">L03</span></div>
+            <div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/leqi-processing.png" alt="乐企联用开通处理中截图"></button><figcaption>开通处理中</figcaption></figure><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>降低异步等待的不确定感。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示已完成与处理中步骤</li><li>刷新/回到任务中心</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>处理状态由后端任务驱动；页面退出后再次进入应恢复真实进度，不应重新发起授权。</p></div></div><div class="route"><span><b>前置：</b>L02 授权成功</span><span class="arrow">→</span><span class="next"><b>系统结果：</b>成功 → L04；失败 → X02</span></div></div></div>
+          </article>
+
+          <article class="page-card leqi" id="l04">
+            <div class="page-card-head"><div><span class="tag success">渠道完成</span><h3>渠道开通完成</h3><p>乐企联用任务完成，提示继续配置开票信息。</p></div><span class="code">L04</span></div>
+            <div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/leqi-channel-complete.png" alt="乐企联用渠道开通完成截图"></button><figcaption>渠道已开通</figcaption></figure><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>明确渠道结果并承接后续配置。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示完成结果</li><li>返回任务中心</li><li>继续配置销方信息</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>完成后不可重复发起同一主体的渠道开通；任务中心应解锁后置任务。</p></div></div><div class="route"><span><b>前置：</b>L03 任务成功</span><span class="arrow">→</span><span class="next"><b>继续：</b>配置销方信息 → L05</span></div></div></div>
+          </article>
+
+          <article class="page-card leqi" id="l05">
+            <div class="page-card-head"><div><span class="tag common">共享配置</span><h3>销方信息</h3><p>核对发票上展示的销售方基础信息。</p></div><span class="code">L05</span></div>
+            <div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/invoice-seller-info.png" alt="乐企路径销方信息截图"></button><figcaption>销方信息核对</figcaption></figure><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>确认票面销售方身份信息完整、准确。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示名称、税号、地址电话、开户行账号</li><li>确认并继续</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>企业名称和税号应以已确认主体为准；票面字段是否可编辑及数据权威来源待生产方案确认。</p></div></div><div class="route"><span><b>前置：</b>L04</span><span class="arrow">→</span><span class="next"><b>确认：</b>进入开票项目 → L06</span></div></div></div>
+          </article>
+
+          <article class="page-card leqi" id="l06">
+            <div class="page-card-head"><div><span class="tag common">共享配置</span><h3>默认开票项目</h3><p>查看并确认业务默认使用的商品/服务税收分类项目。</p></div><span class="code">L06</span></div>
+            <div class="page-card-body"><div class="shots" style="--cols:2"><figure class="shot"><button class="shot-button"><img src="screenshots/invoice-item-collapsed.png" alt="开票项目收起截图"></button><figcaption>项目摘要</figcaption></figure><figure class="shot"><button class="shot-button"><img src="screenshots/invoice-item-expanded.png" alt="开票项目展开截图"></button><figcaption>项目明细</figcaption></figure></div><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>让用户确认开票时默认使用的项目。</p></div><div class="info"><h4>核心功能</h4><ul><li>查看项目名称、税率、分类编码</li><li>展开/收起详情</li><li>确认配置</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>Demo 为预置项目；正式产品需定义项目来源、变更权限与税收分类校验规则。</p></div></div><div class="route"><span><b>前置：</b>L05</span><span class="arrow">→</span><span class="next"><b>确认：</b>完成配置 → L07</span></div></div></div>
+          </article>
+
+          <article class="page-card success" id="l07">
+            <div class="page-card-head"><div><span class="tag success">已完成</span><h3>数电票开通完成</h3><p>汇总渠道与票面配置完成结果。</p></div><span class="code">L07</span></div>
+            <div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/activation-success.png" alt="乐企路径数电票开通完成截图"></button><figcaption>乐企路径完成</figcaption></figure><div><div class="info-grid"><div class="info"><h4>页面目标</h4><p>明确腾讯乐企和开票信息配置均已完成。</p></div><div class="info"><h4>核心功能</h4><ul><li>展示完成状态与开票主体</li><li>返回统一进件任务</li></ul></div><div class="info wide"><h4>规则/边界</h4><p>完成结果应与统一进件任务状态一致；若下游仍有生效延迟，需要在页面明确提示。</p></div></div><div class="route"><span><b>前置：</b>L06</span><span class="arrow">→</span><span class="next"><b>结束：</b>形成数电票开通结果</span></div></div></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="rpa">
+        <div class="section-head"><h2>05 · 既有 RPA 流程简述</h2><p>RPA 流程本次没有改动，仅用于说明统一进件的分流结果，不作为本次页面评审重点。</p></div>
+        <div class="page-list">
+          <article class="page-card rpa" id="rpa-summary">
+            <div class="page-card-head"><div><span class="tag rpa">本次未改动</span><h3>企享云 RPA 既有流程</h3><p>无营业执照、不使用当前营业执照主体或行业不命中腾讯乐企规则时，继续沿用原流程。</p></div><span class="code">RPA</span></div>
+            <div class="page-card-body"><div class="shots"><figure class="shot"><button class="shot-button"><img src="screenshots/rpa-issuer-form.png" alt="RPA 填写开票人及税局登录信息截图"></button><figcaption>填写开票人及税局登录信息</figcaption></figure></div><div><div class="info-grid"><div class="info wide"><h4>既有流程摘要</h4><p>补充并确认开票主体 → 填写开票员及税局账号信息并验证登录 → 提交企享云 RPA 开通 → 确认销方信息和默认开票项目 → 查看进度和结果。</p></div><div class="info"><h4>本次范围</h4><p>不修改 RPA 页面、字段、校验、任务状态或异常处理。</p></div><div class="info"><h4>共享结果</h4><p>完成后与腾讯乐企路径一样，回到统一进件任务并形成数电票开通结果。</p></div></div><div class="route"><span><b>分流入口：</b>U02 或系统行业规则</span><span class="arrow">→</span><span class="next"><b>处理方式：</b>沿用既有 RPA 流程</span></div></div></div>
+          </article>
+
+        </div>
+      </section>
+
+      <section id="exceptions">
+        <div class="section-head"><h2>04 · 腾讯乐企异常与恢复</h2><p>聚焦腾讯乐企扫码授权与异步开通过程中的操作帮助、失败原因和重新发起。</p></div>
+        <div class="page-list" style="margin-top:22px">
+          <article class="page-card common" id="x01"><div class="page-card-head"><div><span class="tag common">辅助说明</span><h3>乐企操作指引</h3><p>在不离开开通上下文的情况下解释扫码与授权操作。</p></div><span class="code">X01</span></div><div class="page-card-body"><figure class="shot"><button class="shot-button"><img src="screenshots/operation-guide.png" alt="乐企联用操作指引截图"></button><figcaption>操作指引</figcaption></figure><div><div class="info-grid"><div class="info"><h4>核心功能</h4><p>展示授权准备、扫码人要求和操作步骤。</p></div><div class="info"><h4>流转</h4><p>关闭后回到 L01/L02，保留当前状态。</p></div></div></div></div></article>
+          <article class="page-card exception" id="x02"><div class="page-card-head"><div><span class="tag danger">失败恢复</span><h3>乐企开通失败与重新发起</h3><p>明确失败原因，二次确认后重新创建授权任务。</p></div><span class="code">X02</span></div><div class="page-card-body"><div class="shots" style="--cols:2"><figure class="shot"><button class="shot-button"><img src="screenshots/leqi-failed.png" alt="乐企开通失败截图"></button><figcaption>失败结果</figcaption></figure><figure class="shot"><button class="shot-button"><img src="screenshots/leqi-restart-confirm.png" alt="乐企重新发起确认截图"></button><figcaption>重新发起确认</figcaption></figure></div><div><div class="info-grid"><div class="info"><h4>核心功能</h4><ul><li>展示失败步骤与原因</li><li>重新发起前二次确认</li><li>返回任务中心</li></ul></div><div class="info"><h4>规则/边界</h4><p>重新发起应使旧二维码/任务失效；可恢复的已填信息不应丢失。</p></div></div><div class="route"><span><b>前置：</b>L02/L03 失败</span><span class="arrow">→</span><span class="next"><b>确认重试：</b>返回 L01/L02</span></div></div></div></article>
+        </div>
+      </section>
+
+      <section id="index">
+        <div class="section-head"><h2>06 · 页面索引与验收关注点</h2><p>用于产品、研发、测试对齐页面范围和关键状态。</p></div>
+        <div class="index-table-wrap"><table><thead><tr><th>范围</th><th>页面</th><th>关键输入</th><th>关键输出/下一步</th><th>验收重点</th></tr></thead><tbody>
+          <tr><td>统一进件</td><td><a href="#u01">U01 开通任务</a></td><td>当前任务状态</td><td>进入主体确认</td><td>任务顺序与状态恢复</td></tr>
+          <tr><td>统一进件</td><td><a href="#u02">U02 主体确认</a></td><td>营业执照主体、行业</td><td>腾讯乐企或既有 RPA</td><td>加油站主流程分流准确</td></tr>
+          <tr><td>乐企</td><td><a href="#l01">L01 联用工作台</a></td><td>已确认主体</td><td>生成授权二维码</td><td>主体和任务上下文一致</td></tr>
+          <tr><td>乐企</td><td><a href="#l02">L02 扫码授权</a></td><td>主体、二维码</td><td>授权结果</td><td>过期、刷新、跨端回跳</td></tr>
+          <tr><td>乐企</td><td><a href="#l03">L03 开通处理中</a></td><td>任务状态</td><td>成功或失败</td><td>退出后可恢复</td></tr>
+          <tr><td>乐企</td><td><a href="#l04">L04 渠道完成</a></td><td>腾讯乐企成功结果</td><td>进入开票信息配置</td><td>不可重复发起渠道开通</td></tr>
+          <tr><td>共享配置</td><td><a href="#l05">L05 销方信息</a> / <a href="#l06">L06 开票项目</a></td><td>已确认主体</td><td>票面配置完成</td><td>主体与票面数据一致</td></tr>
+          <tr><td>异常</td><td><a href="#x02">X02 失败重试</a></td><td>失败任务</td><td>新授权任务</td><td>旧任务失效、幂等</td></tr>
+          <tr><td>RPA</td><td><a href="#rpa-summary">既有流程简述</a></td><td>未满足腾讯乐企条件</td><td>沿用原 RPA 进件</td><td>确认本次没有页面和规则改动</td></tr>
+        </tbody></table></div>
+        <p class="footnote">说明：本文只描述统一进件开通页面，以腾讯乐企联用为本次详细评审范围；CRM 门店与额度激活页面不在本文展开，RPA 仅用于说明分流结果。点击任意截图可放大查看，按 Esc 关闭。</p>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="lightbox" aria-label="截图预览">
+    <div class="lightbox-inner"><button class="lightbox-close" aria-label="关闭">×</button><img alt="放大截图"></div>
+  </dialog>
+
+  <script>
+    const dialog = document.querySelector('#lightbox');
+    const dialogImage = dialog.querySelector('img');
+    document.querySelectorAll('.shot-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        const source = button.querySelector('img');
+        dialogImage.src = source.src;
+        dialogImage.alt = source.alt;
+        dialog.showModal();
+      });
+    });
+    dialog.querySelector('.lightbox-close').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+
+    const navLinks = [...document.querySelectorAll('.side a[href^="#"]')];
+    const sections = [...document.querySelectorAll('main > section')];
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${visible.target.id}`));
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: [0, .1, .5] });
+    sections.forEach((section) => observer.observe(section));
+  </script>
+</body>
+</html>
