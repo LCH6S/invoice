@@ -288,13 +288,6 @@ function taxpayerNo() {
   return currentProfile().taxNo;
 }
 
-function taxBureauPortal() {
-  if (taxpayerName().includes("济南")) {
-    return { name: "山东省电子税务局", url: "https://etax.shandong.chinatax.gov.cn/" };
-  }
-  return { name: "上海电子税务局", url: "https://etax.shanghai.chinatax.gov.cn/" };
-}
-
 function queryTaxpayerByTaxNo(taxNo) {
   const normalized = taxNo.trim().toUpperCase();
   if (!/^[0-9A-Z]{18}$/.test(normalized) || normalized === "999999999999999999") return null;
@@ -803,20 +796,11 @@ function renderWechatCard() {
   const complete = state.wechatStatus === "ENABLED";
   const status = complete ? "success" : failed ? "failed" : state.wechatQrGenerated ? "opening" : "pending";
   const statusMeta = abilityDisplayStatus(status);
-  const taxPortal = taxBureauPortal();
-  const taxPortalContent = `
-    <div class="product-open-url tax-bureau-link">
-      <span>${escapeHtml(taxPortal.name)}</span>
-      <strong>${escapeHtml(taxPortal.url)}</strong>
-      <button class="text-button" data-action="copy-tax-bureau-url" data-url="${escapeHtml(taxPortal.url)}">复制地址</button>
-    </div>
-  `;
   let guidance = "请微信商户超级管理员使用个人微信扫码完成开通";
   let detail = "";
   let actions = '<button class="button secondary block" data-action="open-wechat-auth">生成开通二维码</button>';
   if (status === "opening") {
     guidance = wechatProcessingStatusMeta[state.wechatStatus] || "请微信商户超级管理员使用个人微信扫码完成开通";
-    detail = wechatProcessingStatusMeta[state.wechatStatus] ? taxPortalContent : "";
     actions = '<div class="step-button-row"><button class="button tertiary" data-action="open-wechat-auth">查看二维码</button><button class="button secondary" data-action="open-refresh-simulator" data-context="wechat-opening">刷新进度</button></div>';
   }
   if (status === "failed") {
@@ -851,7 +835,7 @@ function renderTencentLeqiWorkspace() {
   const status = complete ? "success" : failed ? "failed" : state.wechatQrGenerated ? "opening" : "pending";
   const statusMeta = abilityDisplayStatus(status);
   const processingGuidance = wechatProcessingStatusMeta[state.wechatStatus];
-  const taxPortal = taxBureauPortal();
+  const statusGuidance = processingGuidance || "请微信商户超级管理员使用个人微信扫码完成开通";
 
   let mainContent = `
     <div class="tencent-leqi-state pending">
@@ -865,30 +849,13 @@ function renderTencentLeqiWorkspace() {
   if (status === "opening") {
     mainContent = `
       <div class="tencent-leqi-state opening">
-        ${
-          processingGuidance
-            ? `
-              <div class="wechat-access-status">
-                <span>微信数电发票接入状态</span>
-                <p>${escapeHtml(processingGuidance)}</p>
-              </div>
-              <div class="wechat-taxpayer-summary">
-                <div><span>企业名称</span><strong>${escapeHtml(taxpayerName())}</strong></div>
-                <div><span>税号</span><strong>${escapeHtml(taxpayerNo())}</strong></div>
-              </div>
-              <div class="product-open-url tax-bureau-link tencent-tax-link">
-                <span>${escapeHtml(taxPortal.name)}</span>
-                <strong>${escapeHtml(taxPortal.url)}</strong>
-                <button class="text-button" data-action="copy-tax-bureau-url" data-url="${escapeHtml(taxPortal.url)}">复制地址</button>
-              </div>
-            `
-            : `
-              <p class="tencent-leqi-guidance">请微信商户超级管理员使用个人微信扫码完成开通</p>
-              <div class="tencent-inline-qr">
-                <img class="tencent-qr-poster" src="${tencentQrPosterDataUrl()}" alt="腾讯乐企联用开通二维码" />
-              </div>
-            `
-        }
+        <div class="wechat-access-status">
+          <span>当前开通状态</span>
+          <p>${escapeHtml(statusGuidance)}</p>
+        </div>
+        <div class="tencent-inline-qr">
+          <img class="tencent-qr-poster" src="${tencentQrPosterDataUrl()}" alt="腾讯乐企联用开通二维码" />
+        </div>
         <button class="button secondary tencent-primary-action" data-action="open-refresh-simulator" data-context="wechat-opening">刷新进度</button>
         <button class="guide-link-button" data-action="open-operation-guide" data-guide="wechat">查看操作指引</button>
       </div>
@@ -1560,11 +1527,6 @@ document.addEventListener("click", (event) => {
   }
   if (action === "restart-alipay-product") {
     openRestartConfirm("alipay", trigger.dataset.product);
-  }
-  if (action === "copy-tax-bureau-url") {
-    const url = trigger.dataset.url || "";
-    copyText(url);
-    showToast("税局后台地址已复制");
   }
   if (action === "refresh-rpa") {
     state.rpaStage = Math.min(state.rpaStage + 1, 4);

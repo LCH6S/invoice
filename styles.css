@@ -1246,7 +1246,7 @@ select:focus-visible {
 
 .tencent-inline-qr {
   width: 100%;
-  margin-top: 20px;
+  margin-top: 0;
 }
 
 .tencent-qr-poster {
@@ -1273,44 +1273,6 @@ select:focus-visible {
   line-height: 20px;
 }
 
-.tencent-tax-link {
-  width: 100%;
-  text-align: left;
-}
-
-.wechat-taxpayer-summary {
-  width: 100%;
-  margin-bottom: 14px;
-  border-top: 1px solid var(--semi-color-border);
-  background: var(--semi-color-bg-0);
-  text-align: left;
-}
-
-.wechat-access-status + .wechat-taxpayer-summary {
-  margin-top: 14px;
-}
-
-.wechat-taxpayer-summary > div {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--semi-color-border);
-  font-size: 14px;
-  line-height: 22px;
-}
-
-.wechat-taxpayer-summary span {
-  color: var(--semi-color-text-2);
-}
-
-.wechat-taxpayer-summary strong {
-  min-width: 0;
-  color: var(--semi-color-text-0);
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-
 .wechat-access-status {
   display: grid;
   width: 100%;
@@ -1335,8 +1297,8 @@ select:focus-visible {
   line-height: 22px;
 }
 
-.wechat-access-status + .tencent-tax-link {
-  margin-top: 14px;
+.wechat-access-status + .tencent-inline-qr {
+  margin-top: 16px;
 }
 
 .tencent-state-symbol {
