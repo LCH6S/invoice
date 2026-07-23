@@ -1,56 +1,17 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#ffffff" />
-    <title>CRM 数电票开通 Demo</title>
-    <link rel="icon" href="data:," />
+    <title>微信小店数电票开通</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.wosaimg.com/@sqb/icons@0.5.6/dist/sqb-icons.css"
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-viewport">
-      <div class="app-shell">
-        <header class="app-header" id="appHeader"></header>
-        <main id="app" aria-live="polite"></main>
-      </div>
-    </div>
-
-    <div class="sheet" id="sheet" aria-hidden="true">
-      <button class="sheet-mask" data-action="close-sheet" aria-label="关闭弹窗"></button>
-      <section class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-        <div class="sheet-handle" aria-hidden="true"></div>
-        <div class="sheet-header">
-          <h2 id="sheetTitle"></h2>
-          <button class="icon-button" data-action="close-sheet" aria-label="关闭"><img src="./assets/x.svg" alt="" /></button>
-        </div>
-        <div class="sheet-body" id="sheetBody"></div>
-        <div class="sheet-actions" id="sheetActions"></div>
-      </section>
-    </div>
-
-    <div class="toast" id="toast" role="status"></div>
-
-    <div class="query-error-modal" id="queryErrorModal" aria-hidden="true" hidden>
-      <button class="query-error-mask" data-action="close-query-error" aria-label="关闭错误提示"></button>
-      <section class="query-error-panel" role="alertdialog" aria-modal="true" aria-labelledby="queryErrorTitle">
-        <h2 id="queryErrorTitle">错误提示</h2>
-        <p>未查询到该统一社会信用代码对应的企业信息，请核实后重新填写。</p>
-        <button class="query-error-action" data-action="close-query-error">返回修改</button>
-      </section>
-    </div>
-
-    <div class="restart-confirm-modal" id="restartConfirmModal" aria-hidden="true" hidden>
-      <button class="restart-confirm-mask" data-action="close-restart-confirm" aria-label="取消重新发起开通"></button>
-      <section class="restart-confirm-panel" role="alertdialog" aria-modal="true" aria-labelledby="restartConfirmTitle">
-        <h2 id="restartConfirmTitle">重新发起开通</h2>
-        <p>重新发起后将生成新的开通二维码，请商家重新扫码操作。</p>
-        <div class="restart-confirm-actions">
-          <button class="restart-confirm-action cancel" data-action="close-restart-confirm">取消</button>
-          <button class="restart-confirm-action primary" data-action="confirm-restart">确认重新发起</button>
-        </div>
-      </section>
-    </div>
-    <script src="./app.js"></script>
+    <main id="app" aria-live="polite"></main>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
