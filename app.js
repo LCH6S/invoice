@@ -53,13 +53,15 @@ function buildInviteRequest(state) {
 
 function createInitialDemoState() {
   const scenario = params.get("scenario") || "normal";
+  const applicationNo = params.get("application_no") || "WXSHOP202607220001";
   const state = {
     merchantNo: params.get("merchant_no") || "1905827611",
-    applicationNo: params.get("application_no") || "WXSHOP202607220001",
+    applicationNo,
     scenario,
     bridge: params.get("bridge") || "available",
-    view: "opening-flow",
+    view: "wechat-shop-home",
     returnView: "opening-flow",
+    simulatedMerchantType: "",
     taxpayerType: "",
     taxpayerError: "",
     license: {
@@ -132,15 +134,17 @@ window.demoState = createInitialDemoState();
 
 function renderNavBar() {
   const titles = {
+    "wechat-shop-home": "微信小店",
+    "opening-notice": "开通须知",
     "opening-flow": "开通数电票",
+    "no-business-license": "开通数电票",
     "taxpayer-guide": "纳税人类型说明",
     "authorization-guide": "授权操作说明",
-    "wechat-shop": "微信小店",
   };
   const isGuide = window.demoState.view === "taxpayer-guide"
     || window.demoState.view === "authorization-guide";
   const action = isGuide ? "return-from-guide" : "leave-opening-flow";
-  const backButton = window.demoState.view === "wechat-shop"
+  const backButton = window.demoState.view === "wechat-shop-home"
     ? '<span class="nav-placeholder" aria-hidden="true"></span>'
     : `
       <button class="nav-back" data-action="${action}" aria-label="返回">
@@ -156,6 +160,40 @@ function renderNavBar() {
 
 function selectedTaxpayerType() {
   return window.demoState.taxpayerType;
+}
+
+function selectSimulatedMerchantType(value) {
+  if (!["licensed", "unlicensed"].includes(value)) return;
+  window.demoState.simulatedMerchantType = value;
+  render();
+}
+
+function enterDigitalInvoiceFlow() {
+  if (!window.demoState.simulatedMerchantType) {
+    showToast("请选择本次要模拟的商户类型");
+    return;
+  }
+
+  window.demoState.view = window.demoState.simulatedMerchantType === "licensed"
+    ? "opening-notice"
+    : "no-business-license";
+  render();
+}
+
+function returnToWechatShop() {
+  stopAutoRefresh();
+  window.demoState.simulatorStage = "";
+  window.demoState.taxpayerSelectorOpen = false;
+  window.demoState.qrPreviewOpen = false;
+  window.demoState.retryDialogOpen = false;
+  window.demoState.view = "wechat-shop-home";
+  window.demoState.simulatedMerchantType = "";
+  render();
+}
+
+function acknowledgeOpeningNotice() {
+  window.demoState.view = "opening-flow";
+  render();
 }
 
 function validateTaxpayerType() {
@@ -273,12 +311,76 @@ function returnFromGuide() {
 
 function renderTaxpayerGuide() {
   return `
-    <section class="guide-page">
-      <h1>如何查看纳税人类型</h1>
-      <div class="guide-placeholder">
-        <strong>纳税人类型说明将在这里展示</strong>
-        <p>后续补充一般纳税人与小规模纳税人的查看路径和判断说明。</p>
+    <section class="guide-page taxpayer-guide-page">
+      <div class="taxpayer-guide-intro">
+        <h1>如何查看纳税人类型</h1>
+        <ol class="taxpayer-guide-steps">
+          <li><span>1、</span><p>登录当地电子税务局后台</p></li>
+          <li><span>2、</span><p>点击“税务数字账户”</p></li>
+          <li><span>3、</span><p>纳税人类型会展示在税号旁边</p></li>
+        </ol>
       </div>
+      <div class="taxpayer-guide-images" aria-label="纳税人类型查看图示">
+        <img
+          src="./assets/taxpayer-guide/01-login-electronic-tax-bureau.png"
+          alt="登录当地电子税务局后台图示"
+        >
+        <img
+          src="./assets/taxpayer-guide/02-open-tax-digital-account.png"
+          alt="点击税务数字账户图示"
+          loading="lazy"
+        >
+        <img
+          src="./assets/taxpayer-guide/03-find-taxpayer-type.png"
+          alt="在税号旁查看纳税人类型图示"
+          loading="lazy"
+        >
+      </div>
+    </section>`;
+}
+
+function renderOpeningNotice() {
+  return `
+    <section class="opening-notice-page" aria-labelledby="opening-notice-title">
+      <h1 id="opening-notice-title">开通数电票前，请先核对以下事项</h1>
+
+      <article class="opening-notice-item">
+        <h2><span>1、</span>纳税人信用等级必须为：A、B、M</h2>
+        <p>可登录电子税务局后台确认</p>
+        <p>如果信用等级非 A、B、M，可向当地税务局申请，协助调整。</p>
+        <div class="opening-notice-images">
+          <img
+            src="./assets/opening-notice/01-login-electronic-tax-bureau.png"
+            alt="登录电子税务局后台图示"
+          >
+          <img
+            src="./assets/opening-notice/02-check-tax-credit-rating.png"
+            alt="在电子税务局查看纳税人信用等级图示"
+          >
+        </div>
+      </article>
+
+      <article class="opening-notice-item">
+        <h2><span>2、</span>开通数电票种</h2>
+        <p>需登录税局后台确认已开通数电票种。</p>
+        <p>您可登录电子税务局后，点击“征纳互动”，输入“新电局如何申请数电票种”，查看开通方式。</p>
+        <div class="opening-notice-images">
+          <img
+            src="./assets/opening-notice/03-open-taxpayer-interaction.png"
+            alt="点击电子税务局征纳互动入口图示"
+          >
+          <img
+            src="./assets/opening-notice/04-query-digital-invoice-types.png"
+            alt="向税务客服查询数电票种开通方式图示"
+          >
+        </div>
+      </article>
+
+      <article class="opening-notice-item">
+        <h2><span>3、</span>微信商户号需已完成微信升级认证</h2>
+        <p>可联系您的销售人员或致电收钱吧官方客服协助确认。</p>
+        <p class="service-phone">收钱吧官方客服电话：<a href="tel:4008869999">400-886-9999</a></p>
+      </article>
     </section>`;
 }
 
@@ -297,15 +399,59 @@ function renderAuthorizationGuide() {
     </section>`;
 }
 
-function renderWechatShopReturn() {
-  const completed = hasCompletedTencentOpening();
+function renderWechatShopHome() {
+  const selectedType = window.demoState.simulatedMerchantType;
   return `
-    <section class="wechat-shop-return">
-      <div class="result-card return-result">
-        <strong>${completed ? "数电票开通流程已完成" : "已返回微信小店"}</strong>
-        ${completed ? `
-          <p>${window.demoState.license.companyName}</p>
-          <p>${window.demoState.license.taxpayerId}</p>` : ""}
+    <section class="wechat-shop-demo" aria-labelledby="wechat-shop-demo-title">
+      <div class="wechat-shop-demo-heading">
+        <span class="demo-badge">演示模拟</span>
+        <h1 id="wechat-shop-demo-title">微信小店</h1>
+        <p>选择商户类型，模拟从微信小店发起数电票开通。</p>
+      </div>
+      <section class="merchant-simulation-card" aria-labelledby="merchant-simulation-title">
+        <h2 id="merchant-simulation-title">选择本次要模拟的商户类型</h2>
+        <div class="merchant-type-options" role="radiogroup" aria-labelledby="merchant-simulation-title">
+          <button
+            type="button"
+            class="merchant-type-option${selectedType === "licensed" ? " selected" : ""}"
+            role="radio"
+            aria-checked="${selectedType === "licensed"}"
+            data-action="select-simulated-merchant"
+            data-value="licensed"
+          >
+            <span class="merchant-radio" aria-hidden="true"></span>
+            <strong>有营业执照</strong>
+          </button>
+          <button
+            type="button"
+            class="merchant-type-option${selectedType === "unlicensed" ? " selected" : ""}"
+            role="radio"
+            aria-checked="${selectedType === "unlicensed"}"
+            data-action="select-simulated-merchant"
+            data-value="unlicensed"
+          >
+            <span class="merchant-radio" aria-hidden="true"></span>
+            <strong>无营业执照</strong>
+          </button>
+        </div>
+      </section>
+      <section class="shop-service-card">
+        <div>
+          <h2>数电票开通</h2>
+          <p>通过腾讯乐企联用开通数电票服务</p>
+        </div>
+        <span class="shop-service-status">${hasCompletedTencentOpening() ? "已开通" : "待开通"}</span>
+      </section>
+    </section>`;
+}
+
+function renderNoBusinessLicense() {
+  return `
+    <section class="result-layout license-blocked-state">
+      <div class="result-card">
+        <i class="bi bi-b-warn result-icon failure" aria-hidden="true"></i>
+        <h1>暂无法开通</h1>
+        <p>当前商户无营业执照，暂无法开通数电票，请补充后重试。</p>
       </div>
     </section>`;
 }
@@ -642,17 +788,11 @@ function confirmRetry() {
 }
 
 function exitOpeningFlow() {
-  stopAutoRefresh();
-  window.demoState.simulatorStage = "";
-  window.demoState.view = "wechat-shop";
-  render();
+  returnToWechatShop();
 }
 
 function leaveOpeningFlow() {
-  stopAutoRefresh();
-  window.demoState.simulatorStage = "";
-  window.demoState.view = "wechat-shop";
-  render();
+  returnToWechatShop();
 }
 
 function renderSimulator() {
@@ -757,9 +897,30 @@ function renderRetryDialog() {
 }
 
 function renderPageActions() {
+  if (window.demoState.view === "wechat-shop-home") {
+    return `
+      <div class="page-actions single">
+        <button class="action-button primary" data-action="enter-digital-invoice">数电票开通</button>
+      </div>`;
+  }
+
+  if (window.demoState.view === "no-business-license") {
+    return `
+      <div class="page-actions single">
+        <button class="action-button primary" data-action="return-to-wechat-shop">返回</button>
+      </div>`;
+  }
+
+  if (window.demoState.view === "opening-notice") {
+    return `
+      <div class="page-actions single">
+        <button class="action-button primary" data-action="acknowledge-opening-notice">我已知晓</button>
+      </div>`;
+  }
+
   if (window.demoState.view !== "opening-flow") return "";
 
-  if (window.demoState.scenario === "no-license" || hasCompletedTencentOpening()) return "";
+  if (hasCompletedTencentOpening()) return "";
 
   if (window.demoState.inviteStatus === "idle") {
     return `
@@ -794,12 +955,11 @@ function renderPageActions() {
 }
 
 function renderPageContent() {
+  if (window.demoState.view === "wechat-shop-home") return renderWechatShopHome();
+  if (window.demoState.view === "opening-notice") return renderOpeningNotice();
+  if (window.demoState.view === "no-business-license") return renderNoBusinessLicense();
   if (window.demoState.view === "taxpayer-guide") return renderTaxpayerGuide();
   if (window.demoState.view === "authorization-guide") return renderAuthorizationGuide();
-  if (window.demoState.view === "wechat-shop") return renderWechatShopReturn();
-  if (window.demoState.scenario === "no-license") {
-    return `<section class="empty-state"><h1>暂无法开通</h1><p>未查询到营业执照，暂无法开通数电票</p></section>`;
-  }
   if (hasCompletedTencentOpening()) return renderSuccessResult();
   return `
     <div class="opening-sections">
@@ -832,6 +992,10 @@ document.addEventListener("click", (event) => {
   if (!action) return;
   if (trigger.matches("a")) event.preventDefault();
 
+  if (action === "select-simulated-merchant") selectSimulatedMerchantType(trigger.dataset.value);
+  if (action === "enter-digital-invoice") enterDigitalInvoiceFlow();
+  if (action === "return-to-wechat-shop") returnToWechatShop();
+  if (action === "acknowledge-opening-notice") acknowledgeOpeningNotice();
   if (action === "start-authorization") startWechatAuthorization();
   if (action === "open-taxpayer-selector") openTaxpayerSelector();
   if (action === "select-taxpayer-type") selectTaxpayerType(trigger.dataset.value);
