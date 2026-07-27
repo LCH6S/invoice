@@ -931,125 +931,49 @@ fieldset.field input {
   line-height: 18px;
 }
 
-.status-badge {
-  flex: none;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.status-badge.pending { color: var(--sqb-text-secondary); background: var(--sqb-page); }
-.status-badge.opening { color: var(--sqb-primary-press); background: var(--sqb-primary-light); }
-.status-badge.failed { color: var(--sqb-error); background: #fff1f0; }
-.status-badge.success { color: var(--sqb-success); background: #eefbf4; }
-
-.merchant-authorization-group {
-  padding-bottom: 12px;
-}
-
-.authorization-summary {
-  margin: 0 16px 16px;
-  padding: 12px;
-  border-radius: var(--sqb-card-radius);
-  background: var(--sqb-page);
-}
-
-.authorization-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.authorization-heading > strong {
-  color: var(--sqb-text);
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 20px;
-}
-
-.authorization-heading > span {
-  color: var(--sqb-helper);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 18px;
-  text-align: right;
-}
-
-.authorization-summary ol {
-  counter-reset: authorization-step;
-  display: grid;
-  gap: 10px;
-  margin: 12px 0 0;
-  padding: 0;
-  color: var(--sqb-text-secondary);
-  font-size: 13px;
-  list-style: none;
-  line-height: 19px;
-}
-
-.authorization-summary li {
-  position: relative;
-  display: grid;
-  min-height: 36px;
-  align-content: center;
-  gap: 2px;
-  padding-left: 30px;
-  counter-increment: authorization-step;
-}
-
-.authorization-summary li > strong {
-  color: var(--sqb-text);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 18px;
-}
-
-.authorization-summary li > span {
-  color: var(--sqb-helper);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.authorization-summary li::before {
-  position: absolute;
-  top: 9px;
-  left: 0;
-  display: grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--sqb-primary-light);
-  color: var(--sqb-primary-press);
-  content: counter(authorization-step);
-  font-size: 11px;
-  font-weight: 500;
-}
-
 .authorization-guide-link {
   display: inline-block;
-  margin-top: 10px;
+  margin: 8px 16px 0;
   color: var(--sqb-link);
   font-size: 12px;
   line-height: 18px;
   text-decoration: none;
 }
 
-.tencent-opening-section .section-header {
-  border-bottom: 0;
+.tencent-status-hero {
+  padding: 28px 16px 20px;
+  text-align: center;
+}
+
+.tencent-status-title {
+  margin: 0;
+  color: var(--sqb-text-secondary);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  text-align: center;
+}
+
+.tencent-status-hero.opening .tencent-status-title {
+  color: var(--sqb-primary-press);
+}
+
+.tencent-status-hero.failed .tencent-status-title {
+  color: var(--sqb-error);
+}
+
+.tencent-status-hero.success .tencent-status-title {
+  color: var(--sqb-success);
 }
 
 .tencent-status-description {
   display: block;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--sqb-divider);
+  padding-top: 8px;
   color: var(--sqb-helper);
   font-size: 12px;
   font-weight: 400;
   line-height: 18px;
-  text-align: right;
+  text-align: center;
 }
 
 .tencent-status-description.failed {
@@ -1063,17 +987,52 @@ fieldset.field input {
   font-weight: inherit;
 }
 
+.tencent-subject-section {
+  padding: 8px 0 16px;
+}
+
+.tencent-subject-title {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--sqb-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.tencent-subject-section .info-row {
+  min-height: 44px;
+}
+
+.tencent-subject-section .info-row + .info-row::before {
+  display: none;
+}
+
 .inline-action-button {
   display: block;
   width: auto;
   min-height: 28px;
-  margin: 0 16px 0 auto;
+  margin: 12px auto 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--sqb-primary-press);
   font-size: 13px;
+  cursor: pointer;
+}
+
+.progress-query-link {
+  justify-self: center;
+  min-height: 36px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--sqb-primary-press);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
   cursor: pointer;
 }
 

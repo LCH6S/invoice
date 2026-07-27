@@ -60,7 +60,7 @@ function createInitialDemoState() {
     scenario,
     bridge: params.get("bridge") || "available",
     view: "wechat-shop-home",
-    returnView: "opening-flow",
+    returnView: "invoice-confirmation",
     simulatedMerchantType: "",
     taxpayerType: "",
     taxpayerError: "",
@@ -136,7 +136,8 @@ function renderNavBar() {
   const titles = {
     "wechat-shop-home": "微信小店",
     "opening-notice": "开通须知",
-    "opening-flow": "开通数电票",
+    "invoice-confirmation": "开通数电票",
+    "tencent-opening": "腾讯乐企联用",
     "no-business-license": "开通数电票",
     "taxpayer-guide": "纳税人类型说明",
     "authorization-guide": "授权操作说明",
@@ -144,7 +145,9 @@ function renderNavBar() {
   const isGuide = window.demoState.view === "taxpayer-guide"
     || window.demoState.view === "authorization-guide";
   const action = isGuide ? "return-from-guide" : "leave-opening-flow";
-  const backButton = window.demoState.view === "wechat-shop-home"
+  const hidesBackButton = window.demoState.view === "wechat-shop-home"
+    || window.demoState.view === "tencent-opening";
+  const backButton = hidesBackButton
     ? '<span class="nav-placeholder" aria-hidden="true"></span>'
     : `
       <button class="nav-back" data-action="${action}" aria-label="返回">
@@ -192,7 +195,10 @@ function returnToWechatShop() {
 }
 
 function acknowledgeOpeningNotice() {
-  window.demoState.view = "opening-flow";
+  const hasExistingApplication = window.demoState.inviteStatus !== "idle";
+  window.demoState.view = hasExistingApplication
+    ? "tencent-opening"
+    : "invoice-confirmation";
   render();
 }
 
@@ -208,8 +214,9 @@ function validateTaxpayerType() {
   return false;
 }
 
-function startWechatAuthorization() {
+function confirmInvoiceInformation() {
   if (!validateTaxpayerType()) return;
+  window.demoState.view = "tencent-opening";
   enterTencentOpening({ launchAfterCreate: true });
 }
 
@@ -300,10 +307,10 @@ function selectTaxpayerType(value) {
 }
 
 function returnFromGuide() {
-  const returnView = window.demoState.returnView || "opening-flow";
+  const returnView = window.demoState.returnView || "invoice-confirmation";
   window.demoState.view = returnView;
-  window.demoState.returnView = "opening-flow";
-  if (returnView === "opening-flow" && window.demoState.inviteStatus === "opening") {
+  window.demoState.returnView = "invoice-confirmation";
+  if (returnView === "tencent-opening" && window.demoState.inviteStatus === "opening") {
     queryTencentProgress({ source: "guide-return" });
   }
   render();
@@ -520,35 +527,29 @@ function renderTencentOpeningSection() {
   const status = openingStatusMeta();
   return `
     <section class="opening-card tencent-opening-section">
-      <div class="section-header section-title-row">
-        <h1>腾讯乐企联用</h1>
-        <span class="status-badge ${status.code}">${status.label}</span>
-      </div>
-      ${renderTencentStatusContent()}
-      <div class="merchant-authorization-group">
-        <div class="info-list">
-          <div class="info-row"><span>微信商户号</span><strong>${window.demoState.wechatMerchantNo || "--"}</strong></div>
-        </div>
+      <div class="tencent-status-hero ${status.code}">
+        <h1 class="tencent-status-title">${status.label}</h1>
+        ${renderTencentStatusContent()}
         ${renderTencentQrAction()}
       </div>
-      <div class="authorization-summary">
-        <div class="authorization-heading">
-          <strong>开通步骤</strong>
-          <span>完成以下两步即可开通</span>
+      <div class="tencent-subject-section">
+        <h2 class="tencent-subject-title">开通主体</h2>
+        <div class="info-list">
+          <div class="info-row"><span>企业名称</span><strong>${window.demoState.license.companyName}</strong></div>
+          <div class="info-row"><span>统一社会信用代码</span><strong>${window.demoState.license.taxpayerId}</strong></div>
+          <div class="info-row"><span>微信商户号</span><strong>${window.demoState.wechatMerchantNo || "--"}</strong></div>
         </div>
-        <ol>
-          <li>
-            <strong>微信确认授权</strong>
-            <span>微信商户管理员去微信确认授权开通</span>
-          </li>
-          <li>
-            <strong>数电票服务授权</strong>
-            <span>法人或财务负责人授权数电票服务</span>
-          </li>
-        </ol>
         <a class="authorization-guide-link" href="#authorization-guide" data-action="open-authorization-guide">查看详细操作说明</a>
       </div>
     </section>`;
+}
+
+function renderTencentProgressQueryAction() {
+  if (window.demoState.inviteStatus !== "opening" || hasCompletedTencentOpening()) return "";
+  return `
+    <button class="progress-query-link" data-action="complete-authorization">
+      我已开通，更新进度
+    </button>`;
 }
 
 function renderSuccessResult() {
@@ -672,7 +673,7 @@ function showToast(message) {
 }
 
 function queryTencentProgress({ source = "auto" } = {}) {
-  if (window.demoState.view !== "opening-flow"
+  if (window.demoState.view !== "tencent-opening"
     || window.demoState.inviteStatus !== "opening") return;
   window.demoState.queryCount += 1;
   window.demoState.lastQuerySource = source;
@@ -693,7 +694,7 @@ function stopAutoRefresh() {
 }
 
 function syncAutoRefresh() {
-  const shouldRefresh = window.demoState.view === "opening-flow"
+  const shouldRefresh = window.demoState.view === "tencent-opening"
     && window.demoState.inviteStatus === "opening"
     && !hasCompletedTencentOpening();
   if (shouldRefresh) startAutoRefresh();
@@ -918,22 +919,21 @@ function renderPageActions() {
       </div>`;
   }
 
-  if (window.demoState.view !== "opening-flow") return "";
-
-  if (hasCompletedTencentOpening()) return "";
-
-  if (window.demoState.inviteStatus === "idle") {
+  if (window.demoState.view === "invoice-confirmation") {
     return `
       <div class="page-actions single">
-        <button class="action-button primary" data-action="start-authorization">去微信授权开通</button>
+        <button class="action-button primary" data-action="confirm-invoice-information">确认并继续</button>
       </div>`;
   }
 
+  if (window.demoState.view !== "tencent-opening") return "";
+
+  if (hasCompletedTencentOpening()) return "";
+
   if (window.demoState.inviteStatus === "opening" && !hasCompletedTencentOpening()) {
     return `
-      <div class="page-actions two">
-        <button class="action-button secondary" data-action="complete-authorization">我已完成</button>
-        <button class="action-button primary" data-action="authorize">继续授权</button>
+      <div class="page-actions single">
+        <button class="action-button primary" data-action="authorize">去授权</button>
       </div>`;
   }
 
@@ -960,12 +960,18 @@ function renderPageContent() {
   if (window.demoState.view === "no-business-license") return renderNoBusinessLicense();
   if (window.demoState.view === "taxpayer-guide") return renderTaxpayerGuide();
   if (window.demoState.view === "authorization-guide") return renderAuthorizationGuide();
-  if (hasCompletedTencentOpening()) return renderSuccessResult();
-  return `
-    <div class="opening-sections">
-      ${renderInvoiceInfoSection()}
-      ${renderTencentOpeningSection()}
-    </div>`;
+  if (window.demoState.view === "invoice-confirmation") {
+    return `<div class="opening-sections">${renderInvoiceInfoSection()}</div>`;
+  }
+  if (window.demoState.view === "tencent-opening") {
+    if (hasCompletedTencentOpening()) return renderSuccessResult();
+    return `
+      <div class="opening-sections">
+        ${renderTencentOpeningSection()}
+        ${renderTencentProgressQueryAction()}
+      </div>`;
+  }
+  return "";
 }
 
 function render() {
@@ -996,7 +1002,7 @@ document.addEventListener("click", (event) => {
   if (action === "enter-digital-invoice") enterDigitalInvoiceFlow();
   if (action === "return-to-wechat-shop") returnToWechatShop();
   if (action === "acknowledge-opening-notice") acknowledgeOpeningNotice();
-  if (action === "start-authorization") startWechatAuthorization();
+  if (action === "confirm-invoice-information") confirmInvoiceInformation();
   if (action === "open-taxpayer-selector") openTaxpayerSelector();
   if (action === "select-taxpayer-type") selectTaxpayerType(trigger.dataset.value);
   if (action === "close-taxpayer-selector"
