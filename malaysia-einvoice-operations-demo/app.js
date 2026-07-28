@@ -1178,6 +1178,12 @@ const state = {
   brandTab: "info",
   settingsView: "brand-list",
   settingsTab: "stores",
+  settingsImportKind: "rules",
+  settingsImportStage: "upload",
+  settingsImportFileName: "",
+  settingsImportRemark: "",
+  settingsImportTaskId: "",
+  settingsImportTasks: {},
   settingsBrandNameKeyword: "",
   settingsBrandIdKeyword: "",
   settingsStoreNameKeyword: "",
@@ -2998,32 +3004,50 @@ function renderEinvoiceSettings() {
     showToast("请先开通客户电子发票产品");
     return;
   }
-  const brand = state.settingsView === "brand-detail" ? currentBrand() : null;
+  const brand = state.settingsView === "brand-list" ? null : currentBrand();
+  const importLabel = brand ? invoiceImportRuleLabel(brand, state.settingsImportKind) : "";
   const detailBreadcrumb = brand
     ? `
-      <span>/</span>
-      <button type="button" data-action="back-brand-settings-list">品牌开票设置</button>
-      <span>/</span>
-      <strong>${escapeHtml(brand.name)}</strong>
-    `
-    : "";
+        <button type="button" data-action="back-brand-settings-list">电子发票设置</button>
+        <span>/</span>
+        <button type="button" data-action="back-brand-invoice-settings">${escapeHtml(brand.name)}品牌开票设置</button>
+        ${
+          state.settingsView === "import-records" || state.settingsView === "import-flow"
+            ? `
+              <span>/</span>
+              <button type="button" data-action="back-invoice-import-rule">${escapeHtml(importLabel)}</button>
+              <span>/</span>
+              ${
+                state.settingsView === "import-records"
+                  ? "<strong>导入记录</strong>"
+                  : `
+                    <button type="button" data-action="back-invoice-import-records">导入记录</button>
+                    <span>/</span>
+                    <strong>导入任务</strong>
+                  `
+              }
+            `
+            : ""
+        }
+      `
+    : "<strong>电子发票设置</strong>";
   app.innerHTML = `
     <div class="breadcrumb einvoice-settings-breadcrumb">
       <button type="button" data-action="back-customer-list">客户列表</button>
       <span>/</span>
       <button type="button" data-action="back-customer-detail" data-tab="products">客户详情</button>
       <span>/</span>
-      ${
-        brand
-          ? `<button type="button" data-action="back-brand-settings-list">电子发票设置</button>${detailBreadcrumb}`
-          : "<strong>电子发票设置</strong>"
-      }
+      ${detailBreadcrumb}
     </div>
     <section class="panel legacy-customer-detail einvoice-settings-page">
       ${
         state.settingsView === "brand-detail"
           ? renderBrandInvoiceSettings(customer)
-          : `
+          : state.settingsView === "import-records"
+            ? renderInvoiceImportRecords(customer, brand)
+            : state.settingsView === "import-flow"
+              ? renderInvoiceImportFlow(customer, brand)
+              : `
             <nav class="detail-tabs single-tab" aria-label="客户电子发票设置">
               <button class="active" type="button">品牌开票设置</button>
             </nav>
@@ -3078,6 +3102,267 @@ function renderInvoiceBrandList(customer) {
       </div>
       <div class="pagination"><span>共 ${brands.length} 条</span></div>
     </div>
+  `;
+}
+
+function invoiceImportRuleLabel(brand, kind = state.settingsImportKind) {
+  if (kind === "rules") return "商品开票匹配规则";
+  return brand?.country === "MY" ? "税号兜底开票规则" : "税号兜底开票项目配置";
+}
+
+function invoiceImportTaskKey(customer, brand, kind = state.settingsImportKind) {
+  return `${customer.id}:${brand.id}:${brand.country}:${kind}`;
+}
+
+function invoiceImportTemplateFields(brand, kind = state.settingsImportKind) {
+  if (brand.country === "MY") {
+    return kind === "rules"
+      ? "商品大类、大类别名、Classification Code、Tax Type、Tax Rate"
+      : "Supplier TIN、兜底开票项目名称、Classification Code、Tax Type、Tax Rate";
+  }
+  return kind === "rules"
+    ? "商品大类、大类别名、税收分类编码、税率、优惠政策、指定开票税号"
+    : "税号、纳税人名称、大类别名、税收分类编码、税率、优惠政策";
+}
+
+function ensureInvoiceImportTasks(customer, brand, kind = state.settingsImportKind) {
+  const key = invoiceImportTaskKey(customer, brand, kind);
+  if (!state.settingsImportTasks[key]) {
+    const suffix = `${brand.country}-${kind === "rules" ? "R" : "F"}`;
+    state.settingsImportTasks[key] = [
+      {
+        id: `IMP-${suffix}-26072801`,
+        createdAt: "2026-07-28 11:20:18",
+        status: "completed",
+        executable: 12,
+        success: 12,
+        failed: 0,
+        operator: "刘辰浩",
+        remark: "首批规则初始化",
+        fileName: `${invoiceImportRuleLabel(brand, kind)}模板-首批.xlsx`,
+      },
+      {
+        id: `IMP-${suffix}-26072702`,
+        createdAt: "2026-07-27 16:42:09",
+        status: "failed",
+        executable: 8,
+        success: 0,
+        failed: 2,
+        operator: "刘辰浩",
+        remark: "存在无效编码",
+        fileName: `${invoiceImportRuleLabel(brand, kind)}模板-修订.xlsx`,
+      },
+      {
+        id: `IMP-${suffix}-26072701`,
+        createdAt: "2026-07-27 10:08:36",
+        status: "pending",
+        executable: 6,
+        success: 0,
+        failed: 0,
+        operator: "运营管理员",
+        remark: "-",
+        fileName: `${invoiceImportRuleLabel(brand, kind)}模板-待执行.xlsx`,
+      },
+    ];
+  }
+  return state.settingsImportTasks[key];
+}
+
+function invoiceImportStatus(task) {
+  const statusMap = {
+    pending: ["待执行", ""],
+    checking: ["检查中", "warning"],
+    checked: ["待执行", ""],
+    executing: ["执行中", "warning"],
+    completed: ["执行完成", "success"],
+    failed: ["执行失败", "danger"],
+    cancelled: ["已取消", ""],
+  };
+  const [label, className] = statusMap[task.status] || statusMap.pending;
+  return `<span class="tag ${className}">${label}</span>`;
+}
+
+function invoiceImportResultText(task) {
+  if (task.status === "pending" || task.status === "checked" || task.status === "checking" || task.status === "executing") return "-";
+  return `可执行:${task.executable || 0} | <span class="success-text">成功:${task.success || 0}</span> | <span class="${task.failed ? "danger-text" : "muted-text"}">失败:${task.failed || 0}</span>`;
+}
+
+function renderInvoiceImportRecords(customer, brand) {
+  if (!brand) return renderInvoiceBrandList(customer);
+  const tasks = ensureInvoiceImportTasks(customer, brand);
+  const label = invoiceImportRuleLabel(brand);
+  return `
+    <div class="invoice-import-page invoice-import-records">
+      <div class="page-inline-toolbar">
+        <button class="button" type="button" data-action="back-invoice-import-rule">返回</button>
+        <div>
+          <h2>${escapeHtml(label)}导入记录</h2>
+          <p>${escapeHtml(brand.name)} · ${escapeHtml(countries[brand.country])}</p>
+        </div>
+        <button class="button primary" type="button" data-action="create-invoice-import-task">导入${escapeHtml(label)}</button>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table invoice-import-task-table">
+          <thead><tr><th>创建时间</th><th>任务号</th><th>状态</th><th>执行结果</th><th>操作人</th><th>备注</th><th>操作</th></tr></thead>
+          <tbody>
+            ${tasks
+              .map(
+                (task) => `
+                  <tr>
+                    <td>${escapeHtml(task.createdAt)}</td>
+                    <td>${escapeHtml(task.id)}</td>
+                    <td>${invoiceImportStatus(task)}</td>
+                    <td>${invoiceImportResultText(task)}</td>
+                    <td>${escapeHtml(task.operator)}</td>
+                    <td>${escapeHtml(task.remark || "-")}</td>
+                    <td class="actions">
+                      <button class="button link" type="button" data-action="open-invoice-import-task" data-id="${task.id}">详情</button>
+                      ${task.status === "pending" || task.status === "checked" ? `<button class="button link" type="button" data-action="execute-invoice-import-task" data-id="${task.id}">立即执行</button>` : ""}
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination"><span>共 ${tasks.length} 条</span></div>
+    </div>
+  `;
+}
+
+function invoiceImportStepState(step) {
+  const stageOrder = {
+    upload: 1,
+    checking: 2,
+    checked: 2,
+    executing: 3,
+    completed: 3,
+    failed: 3,
+    cancelled: 3,
+  };
+  const current = stageOrder[state.settingsImportStage] || 1;
+  if (step < current) return "done";
+  if (step === current) return "active";
+  return "";
+}
+
+function renderInvoiceImportSteps() {
+  return `
+    <div class="invoice-import-steps" aria-label="导入步骤">
+      ${["上传文件", "检查文件", "执行"]
+        .map(
+          (label, index) => `
+            <div class="invoice-import-step ${invoiceImportStepState(index + 1)}">
+              <span>${invoiceImportStepState(index + 1) === "done" ? "✓" : index + 1}</span>
+              <strong>${label}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function currentInvoiceImportTask(customer, brand) {
+  return ensureInvoiceImportTasks(customer, brand).find((task) => task.id === state.settingsImportTaskId) || null;
+}
+
+function renderInvoiceImportFlow(customer, brand) {
+  if (!brand) return renderInvoiceBrandList(customer);
+  const label = invoiceImportRuleLabel(brand);
+  const task = currentInvoiceImportTask(customer, brand);
+  return `
+    <div class="invoice-import-page invoice-import-flow">
+      <div class="page-inline-toolbar compact">
+        <button class="button" type="button" data-action="back-invoice-import-records">返回导入记录</button>
+        <div><h2>导入${escapeHtml(label)}</h2><p>${escapeHtml(brand.name)} · ${escapeHtml(countries[brand.country])}</p></div>
+      </div>
+      ${renderInvoiceImportSteps()}
+      ${renderInvoiceImportStage(customer, brand, task)}
+    </div>
+  `;
+}
+
+function renderInvoiceImportStage(customer, brand, task) {
+  const label = invoiceImportRuleLabel(brand);
+  if (state.settingsImportStage === "upload") {
+    return `
+      <section class="invoice-import-stage">
+        <div class="invoice-import-template-row">
+          <div>
+            <h3>1. 下载导入模板，根据模板提示完善内容</h3>
+            <p>模板字段：${escapeHtml(invoiceImportTemplateFields(brand))}</p>
+          </div>
+          <button class="button" type="button" data-action="download-invoice-import-template">下载模板</button>
+        </div>
+        <div class="invoice-import-upload-row">
+          <h3>2. 上传完善后的内容</h3>
+          <label class="invoice-import-upload-box" for="invoiceImportFile">
+            <span class="invoice-import-file-icon">X</span>
+            <strong>上传文件</strong>
+            <small>下载模板并完善信息后，可将文件拖到此处或点击上传，仅支持 .xlsx</small>
+            <input id="invoiceImportFile" type="file" accept=".xlsx" hidden />
+          </label>
+          ${state.settingsImportFileName ? `<div class="invoice-import-file-name">📎 ${escapeHtml(state.settingsImportFileName)}</div>` : ""}
+        </div>
+        <textarea id="invoiceImportRemark" class="invoice-import-remark" placeholder="请填写备注信息（非必填）">${escapeHtml(state.settingsImportRemark)}</textarea>
+        <div class="invoice-import-actions">
+          <button class="button" type="button" data-action="back-invoice-import-records">返回列表</button>
+          <button class="button primary" type="button" data-action="start-invoice-import-check" ${state.settingsImportFileName ? "" : "disabled"}>开始导入</button>
+        </div>
+      </section>
+    `;
+  }
+  if (state.settingsImportStage === "checking") {
+    return `
+      <section class="invoice-import-stage invoice-import-progress">
+        <div class="invoice-import-file-icon">X</div>
+        <strong>${escapeHtml(task?.fileName || state.settingsImportFileName || `${label}.xlsx`)}</strong>
+        <div class="invoice-import-progress-bar"><span style="width: 58%"></span></div>
+        <p>58% · 预计剩余时间：计算中…</p>
+        <button class="button" type="button" data-action="cancel-invoice-import-task">取消任务</button>
+      </section>
+    `;
+  }
+  if (state.settingsImportStage === "checked" || state.settingsImportStage === "pending") {
+    const executable = task?.executable || 8;
+    const failed = task?.failed || 0;
+    return `
+      <section class="invoice-import-stage invoice-import-check-result">
+        <h3>请确定文件检查结果</h3>
+        <p>可识别数据：${executable + failed} | <span class="danger-text">无法执行数据：${failed}</span> | 可执行数据：${executable}</p>
+        <button class="button" type="button" data-action="download-invoice-import-check-report">下载检查报告</button>
+        <div class="invoice-import-actions">
+          <button class="button" type="button" data-action="back-invoice-import-records">返回列表</button>
+          <button class="button" type="button" data-action="restart-invoice-import-upload">重新上传</button>
+          <button class="button" type="button" data-action="cancel-invoice-import-task">取消任务</button>
+          <button class="button primary" type="button" data-action="run-invoice-import-task" ${executable ? "" : "disabled"}>立即执行</button>
+        </div>
+      </section>
+    `;
+  }
+  if (state.settingsImportStage === "executing") {
+    return `
+      <section class="invoice-import-stage invoice-import-progress">
+        <div class="invoice-import-file-icon">X</div>
+        <strong>${escapeHtml(task?.fileName || `${label}.xlsx`)}</strong>
+        <div class="invoice-import-progress-bar"><span style="width: 72%"></span></div>
+        <p>72% · 预计剩余时间：计算中…</p>
+        <button class="button" type="button" data-action="back-invoice-import-records">返回列表</button>
+      </section>
+    `;
+  }
+  const completed = state.settingsImportStage === "completed";
+  return `
+    <section class="invoice-import-stage invoice-import-result ${completed ? "success" : "failed"}">
+      <h3>${completed ? "✓ 执行成功" : state.settingsImportStage === "cancelled" ? "任务已取消" : "执行失败"}</h3>
+      <p>共执行数据：${task?.executable || 0} | <span class="danger-text">执行失败数据：${task?.failed || 0}</span> | 执行成功数据：${task?.success || 0}</p>
+      <button class="button" type="button" data-action="download-invoice-import-execution-report">下载执行报告</button>
+      <div class="invoice-import-actions">
+        <button class="button" type="button" data-action="back-invoice-import-records">返回列表</button>
+      </div>
+    </section>
   `;
 }
 
@@ -3258,7 +3543,7 @@ function renderMalaysiaSettingsContent(customer, brand) {
         </div>
       </div>
       <div class="table-toolbar actions-only">
-        <div class="inline-actions"><button class="button" type="button" data-action="open-my-import" data-kind="rules">批量导入</button><button class="button primary" type="button" data-action="create-rule">新增规则</button></div>
+        <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="rules">批量导入</button><button class="button primary" type="button" data-action="create-rule">新增规则</button></div>
       </div>
       <div class="table-scroll">
         <table class="data-table wide">
@@ -3311,7 +3596,7 @@ function renderMalaysiaSettingsContent(customer, brand) {
         </div>
       </div>
       <div class="table-toolbar actions-only">
-        <div class="inline-actions"><button class="button" type="button" data-action="open-my-import" data-kind="fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增规则</button></div>
+        <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增规则</button></div>
       </div>
       <div class="table-scroll">
         <table class="data-table wide">
@@ -3444,7 +3729,7 @@ function renderChinaSettingsContent(customer, brand) {
         </div>
       </div>
       <div class="table-toolbar actions-only">
-        <div class="inline-actions"><button class="button" type="button" data-action="mock-import-rules">批量导入</button><button class="button primary" type="button" data-action="create-rule">新增规则</button></div>
+        <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="rules">批量导入</button><button class="button primary" type="button" data-action="create-rule">新增规则</button></div>
       </div>
       <div class="table-scroll">
         <table class="data-table wide">
@@ -3498,7 +3783,7 @@ function renderChinaSettingsContent(customer, brand) {
         </div>
       </div>
       <div class="table-toolbar actions-only">
-        <div class="inline-actions"><button class="button" type="button" data-action="mock-import-fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增规则</button></div>
+        <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增规则</button></div>
       </div>
       <div class="table-scroll">
         <table class="data-table wide">
@@ -5230,90 +5515,145 @@ function confirmDeleteFallback() {
   showToast("兜底配置已删除");
 }
 
-function openMalaysiaInvoiceImport(kind) {
-  const rulesImport = kind === "rules";
-  state.modalContext = { type: "malaysia-invoice-import", kind, fileName: "" };
-  openModal({
-    title: rulesImport ? "批量导入商品开票匹配规则" : "批量导入税号兜底开票规则",
-    drawer: true,
-    className: "malaysia-import-drawer",
-    body: `
-      <section class="import-template-card">
-        <div>
-          <h3>1. 下载导入模板</h3>
-          <p>${rulesImport ? "模板字段：商品大类、大类别名、Classification Code、Tax Type、Tax Rate。" : "模板字段：TIN、兜底开票项目名称、Classification Code、Tax Type、Tax Rate。"}</p>
-        </div>
-        <button class="button" type="button" data-action="download-my-import-template" data-kind="${kind}">下载模板</button>
-      </section>
-      <section class="import-upload-section">
-        <h3>2. 上传填写后的文件</h3>
-        <label class="brand-store-import-box malaysia-rule-import-box" for="malaysiaInvoiceImportFile">
-          <strong>点击选择 Excel 文件</strong>
-          <span>仅支持 .xlsx，单次最多导入 1,000 条</span>
-          <input id="malaysiaInvoiceImportFile" type="file" accept=".xlsx" hidden />
-        </label>
-        <div class="legacy-upload-name" id="malaysiaInvoiceImportFileName"></div>
-      </section>
-      <section class="import-validation-section">
-        <h3>3. 数据校验</h3>
-        <div class="import-validation-empty" id="malaysiaImportValidation">上传文件后展示校验结果</div>
-      </section>
-      <div class="notice info malaysia-import-notice"><span>商品分类名称、税种名称和纳税人名称由系统根据编码或 TIN 自动带出。</span></div>
-    `,
-    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" id="confirmMalaysiaInvoiceImport" type="button" data-action="confirm-my-invoice-import" disabled>确认导入</button>`,
-  });
+function resetInvoiceImportDraft() {
+  state.settingsImportStage = "upload";
+  state.settingsImportFileName = "";
+  state.settingsImportRemark = "";
+  state.settingsImportTaskId = "";
 }
 
-function updateMalaysiaInvoiceImportFile(file) {
-  const fileName = document.getElementById("malaysiaInvoiceImportFileName");
-  const validation = document.getElementById("malaysiaImportValidation");
-  const confirmButton = document.getElementById("confirmMalaysiaInvoiceImport");
-  if (!fileName || !validation || !confirmButton) return;
-  if (!file) {
-    fileName.textContent = "";
-    validation.textContent = "上传文件后展示校验结果";
-    confirmButton.disabled = true;
+function openInvoiceImportRecords(kind) {
+  state.settingsImportKind = kind === "fallbacks" ? "fallbacks" : "rules";
+  resetInvoiceImportDraft();
+  state.settingsView = "import-records";
+  render();
+}
+
+function createInvoiceImportTask() {
+  resetInvoiceImportDraft();
+  state.settingsView = "import-flow";
+  render();
+}
+
+function startInvoiceImportCheck() {
+  const customer = currentCustomer();
+  const brand = currentBrand();
+  if (!brand || !state.settingsImportFileName) return;
+  state.settingsImportRemark = document.getElementById("invoiceImportRemark")?.value.trim() || "";
+  const tasks = ensureInvoiceImportTasks(customer, brand);
+  const task = {
+    id: uid(`IMP-${brand.country}-${state.settingsImportKind === "rules" ? "R" : "F"}`),
+    createdAt: nowText(),
+    status: "checking",
+    executable: 8,
+    success: 0,
+    failed: 0,
+    operator: "运营管理员",
+    remark: state.settingsImportRemark || "-",
+    fileName: state.settingsImportFileName,
+  };
+  tasks.unshift(task);
+  state.settingsImportTaskId = task.id;
+  state.settingsImportStage = "checking";
+  render();
+  setTimeout(() => {
+    const activeBrand = currentBrand();
+    const currentTask = activeBrand ? currentInvoiceImportTask(currentCustomer(), activeBrand) : null;
+    if (state.settingsView !== "import-flow" || state.settingsImportTaskId !== task.id || !currentTask || currentTask.status !== "checking") return;
+    currentTask.status = "checked";
+    state.settingsImportStage = "checked";
+    render();
+  }, 900);
+}
+
+function openInvoiceImportTask(taskId) {
+  const customer = currentCustomer();
+  const brand = currentBrand();
+  const task = ensureInvoiceImportTasks(customer, brand).find((item) => item.id === taskId);
+  if (!task) return;
+  state.settingsImportTaskId = task.id;
+  state.settingsImportFileName = task.fileName;
+  state.settingsImportRemark = task.remark === "-" ? "" : task.remark;
+  const stageMap = {
+    pending: "checked",
+    checked: "checked",
+    checking: "checking",
+    executing: "executing",
+    completed: "completed",
+    failed: "failed",
+    cancelled: "cancelled",
+  };
+  state.settingsImportStage = stageMap[task.status] || "checked";
+  state.settingsView = "import-flow";
+  render();
+}
+
+function executeInvoiceImportTask(taskId = state.settingsImportTaskId) {
+  const customer = currentCustomer();
+  const brand = currentBrand();
+  const task = ensureInvoiceImportTasks(customer, brand).find((item) => item.id === taskId);
+  if (!task) return;
+  state.settingsImportTaskId = task.id;
+  state.settingsImportFileName = task.fileName;
+  task.status = "executing";
+  state.settingsImportStage = "executing";
+  state.settingsView = "import-flow";
+  render();
+  setTimeout(() => {
+    const activeBrand = currentBrand();
+    const currentTask = activeBrand ? currentInvoiceImportTask(currentCustomer(), activeBrand) : null;
+    if (state.settingsImportTaskId !== task.id || !currentTask || currentTask.status !== "executing") return;
+    completeInvoiceImportTask(currentTask);
+  }, 1100);
+}
+
+function applyInvoiceImportSamples(brand) {
+  const config = ensureBrandInvoiceConfig(brand);
+  const customer = currentCustomer();
+  if (state.settingsImportKind === "rules") {
+    const samples =
+      brand.country === "MY"
+        ? [
+            { category: "Seasonal Gift Set", alias: "节庆礼盒", classification: "022", taxType: "01", taxRate: "10%" },
+            { category: "Gift Voucher", alias: "礼品卡", classification: "044", taxType: "01", taxRate: "5%" },
+          ]
+        : [
+            { category: "节庆礼盒", alias: "礼盒", classification: "1040207000000000000", taxShortName: "箱包", taxRate: "13%", preferentialPolicy: "无", specifiedCompanyId: "" },
+            { category: "售后服务", alias: "维修服务", classification: "3049900000000000000", taxShortName: "其他现代服务", taxRate: "6%", preferentialPolicy: "无", specifiedCompanyId: "" },
+          ];
+    samples
+      .slice()
+      .reverse()
+      .forEach((sample) => {
+        if (config.rules.some((rule) => rule.category.toLowerCase() === sample.category.toLowerCase())) return;
+        if (brand.country === "MY") {
+          const classification = malaysiaClassificationCatalog.find((item) => item.code === sample.classification);
+          const taxType = malaysiaTaxTypeCatalog.find((item) => item.code === sample.taxType);
+          config.rules.unshift({
+            id: uid("RULE-MY"),
+            ...sample,
+            classificationName: classification?.name || "",
+            taxTypeName: taxType?.name || "",
+            updatedAt: nowText(),
+          });
+        } else {
+          config.rules.unshift({ id: uid("RULE-CN"), ...sample, updatedAt: nowText() });
+        }
+      });
     return;
   }
-  state.modalContext.fileName = file.name;
-  fileName.textContent = file.name;
-  validation.innerHTML = `
-    <div class="import-stat"><strong>5</strong><span>数据总数</span></div>
-    <div class="import-stat success"><strong>4</strong><span>可导入</span></div>
-    <div class="import-stat warning"><strong>1</strong><span>需核对</span></div>
-    <p>第 5 行为重复数据，本次将跳过；其余数据校验通过。</p>
-  `;
-  validation.classList.add("ready");
-  confirmButton.disabled = false;
-}
-
-function confirmMalaysiaInvoiceImport() {
-  const context = state.modalContext;
-  if (context?.type !== "malaysia-invoice-import" || !context.fileName) return;
-  const config = ensureBrandInvoiceConfig(currentBrand());
-  if (context.kind === "rules") {
-    const samples = [
-      { category: "Seasonal Gift Set", alias: "节庆礼盒", classification: "022", taxType: "01", taxRate: "10%" },
-      { category: "Gift Voucher", alias: "礼品卡", classification: "044", taxType: "01", taxRate: "5%" },
-    ];
-    samples.reverse().forEach((sample) => {
-      if (config.rules.some((rule) => rule.category.toLowerCase() === sample.category.toLowerCase())) return;
-      const classification = malaysiaClassificationCatalog.find((item) => item.code === sample.classification);
-      const taxType = malaysiaTaxTypeCatalog.find((item) => item.code === sample.taxType);
-      config.rules.unshift({
-        id: uid("RULE-MY"),
-        ...sample,
-        classificationName: classification?.name || "",
-        taxTypeName: taxType?.name || "",
-        updatedAt: nowText(),
-      });
-    });
-  } else {
-    const existingCompanyIds = new Set(config.fallbacks.map((fallback) => fallback.companyId));
-    eligibleFallbackTaxpayers()
-      .filter((company) => !existingCompanyIds.has(company.id))
-      .slice(0, 2)
-      .forEach((company) => {
+  const eligibleCompanies = customer.companies.filter(
+    (company) =>
+      company.country === brand.country &&
+      company.invoiceStatus === "opened" &&
+      (brand.country === "MY" ? company.licenses?.TIN : company.licenses?.USCC),
+  );
+  const existingCompanyIds = new Set(config.fallbacks.map((fallback) => fallback.companyId));
+  eligibleCompanies
+    .filter((company) => !existingCompanyIds.has(company.id))
+    .slice(0, 2)
+    .forEach((company) => {
+      if (brand.country === "MY") {
         config.fallbacks.unshift({
           id: uid("FB-MY"),
           companyId: company.id,
@@ -5325,11 +5665,43 @@ function confirmMalaysiaInvoiceImport() {
           taxRate: "10%",
           updatedAt: nowText(),
         });
-      });
-  }
-  closeModal();
+      } else {
+        config.fallbacks.unshift({
+          id: uid("FB-CN"),
+          companyId: company.id,
+          itemName: "零售商品",
+          classification: "1040201000000000000",
+          taxShortName: "服装",
+          taxRate: "13%",
+          preferentialPolicy: "无",
+          updatedAt: nowText(),
+        });
+      }
+    });
+}
+
+function completeInvoiceImportTask(task) {
+  const brand = currentBrand();
+  applyInvoiceImportSamples(brand);
+  task.status = "completed";
+  task.success = task.executable || 8;
+  task.failed = 0;
+  state.settingsImportStage = "completed";
   render();
-  showToast(context.kind === "rules" ? "商品开票匹配规则批量导入完成" : "税号兜底开票规则批量导入完成");
+  showToast(`${invoiceImportRuleLabel(brand)}导入完成`);
+}
+
+function cancelInvoiceImportTask() {
+  const brand = currentBrand();
+  const task = brand ? currentInvoiceImportTask(currentCustomer(), brand) : null;
+  if (task) task.status = "cancelled";
+  state.settingsView = "import-records";
+  state.settingsImportStage = "upload";
+  state.settingsImportFileName = "";
+  state.settingsImportRemark = "";
+  state.settingsImportTaskId = "";
+  render();
+  showToast("导入任务已取消");
 }
 
 function openPaymentEditor(paymentId = "") {
@@ -5713,6 +6085,20 @@ app.addEventListener("click", (event) => {
     resetApplicationEditorState();
     render();
   }
+  if (action === "back-brand-invoice-settings" || action === "back-invoice-import-rule") {
+    state.settingsView = "brand-detail";
+    state.settingsTab = state.settingsImportKind === "fallbacks" ? "fallback" : "rules";
+    resetInvoiceImportDraft();
+    render();
+  }
+  if (action === "back-invoice-import-records") {
+    state.settingsView = "import-records";
+    state.settingsImportStage = "upload";
+    state.settingsImportFileName = "";
+    state.settingsImportRemark = "";
+    state.settingsImportTaskId = "";
+    render();
+  }
   if (action === "settings-tab") {
     if (state.settingsTab === "application" && target.dataset.tab !== "application") resetApplicationEditorState();
     state.settingsTab = target.dataset.tab;
@@ -5763,8 +6149,23 @@ app.addEventListener("click", (event) => {
     render();
     showToast("发票明细项目名称设置已保存");
   }
-  if (action === "open-my-import") openMalaysiaInvoiceImport(target.dataset.kind);
-  if (action === "mock-import-rules" || action === "mock-import-fallbacks") showToast("批量导入流程沿用 CRM 现有能力");
+  if (action === "open-invoice-import-records") openInvoiceImportRecords(target.dataset.kind);
+  if (action === "create-invoice-import-task") createInvoiceImportTask();
+  if (action === "open-invoice-import-task") openInvoiceImportTask(target.dataset.id);
+  if (action === "execute-invoice-import-task") executeInvoiceImportTask(target.dataset.id);
+  if (action === "start-invoice-import-check") startInvoiceImportCheck();
+  if (action === "run-invoice-import-task") executeInvoiceImportTask();
+  if (action === "restart-invoice-import-upload") {
+    const task = currentInvoiceImportTask(currentCustomer(), currentBrand());
+    if (task && task.status !== "completed") task.status = "cancelled";
+    resetInvoiceImportDraft();
+    state.settingsView = "import-flow";
+    render();
+  }
+  if (action === "cancel-invoice-import-task") cancelInvoiceImportTask();
+  if (action === "download-invoice-import-template") showToast(`${invoiceImportRuleLabel(currentBrand())}导入模板已下载`);
+  if (action === "download-invoice-import-check-report") showToast("文件检查报告已下载");
+  if (action === "download-invoice-import-execution-report") showToast("任务执行报告已下载");
   if (action === "toggle-store-invoice") {
     const store = currentBrand().stores.find((item) => item.id === target.dataset.id);
     if (store) {
@@ -5919,10 +6320,6 @@ modalRoot.addEventListener("click", (event) => {
   }
   if (action === "download-store-template") showToast("门店导入模板已下载");
   if (action === "confirm-brand-store-import") confirmBrandStoreImport();
-  if (action === "download-my-import-template") {
-    showToast(target.dataset.kind === "rules" ? "商品开票匹配规则模板已下载" : "税号兜底开票规则模板已下载");
-  }
-  if (action === "confirm-my-invoice-import") confirmMalaysiaInvoiceImport();
   if (action === "save-rule") saveRule();
   if (action === "save-fallback") saveFallback();
   if (action === "confirm-delete-fallback") confirmDeleteFallback();
@@ -5997,9 +6394,6 @@ modalRoot.addEventListener("change", (event) => {
     const error = document.getElementById("brandStoreImportError");
     if (error) error.textContent = "";
   }
-  if (event.target.id === "malaysiaInvoiceImportFile") {
-    updateMalaysiaInvoiceImportFile(event.target.files?.[0]);
-  }
   if (event.target.id === "ruleTaxType") {
     syncMalaysiaTaxTypeFields("rule");
   }
@@ -6072,6 +6466,12 @@ app.addEventListener("change", (event) => {
   }
   if (event.target.id === "applicationLogoFile") {
     handleApplicationLogoFile(event.target.files?.[0]);
+  }
+  if (event.target.id === "invoiceImportFile") {
+    const file = event.target.files?.[0];
+    state.settingsImportRemark = document.getElementById("invoiceImportRemark")?.value || state.settingsImportRemark;
+    state.settingsImportFileName = file?.name || "";
+    render();
   }
 });
 

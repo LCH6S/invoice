@@ -3080,91 +3080,216 @@ input[readonly] {
   font-size: 13px;
 }
 
-.malaysia-import-drawer {
-  width: min(680px, 100vw) !important;
+.invoice-import-page {
+  min-height: 620px;
+  padding: 22px 24px 32px;
 }
 
-.malaysia-import-drawer .modal-body {
+.page-inline-toolbar {
   display: grid;
-  align-content: start;
-  gap: 24px;
-}
-
-.import-template-card {
-  display: flex;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  background: #f7f8fa;
+  gap: 16px;
+  margin-bottom: 22px;
 }
 
-.import-template-card h3,
-.import-upload-section h3,
-.import-validation-section h3 {
-  margin: 0 0 8px;
-  font-size: 15px;
+.page-inline-toolbar.compact {
+  grid-template-columns: auto 1fr;
 }
 
-.import-template-card p {
+.page-inline-toolbar h2,
+.page-inline-toolbar p {
   margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
 }
 
-.malaysia-rule-import-box {
-  min-height: 132px;
-  margin-top: 12px;
+.page-inline-toolbar h2 {
+  font-size: 18px;
 }
 
-.import-validation-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 104px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  color: var(--muted);
-}
-
-.import-validation-empty.ready {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  color: var(--text);
-}
-
-.import-validation-empty.ready p {
-  grid-column: 1 / -1;
-  margin: 4px 0 0;
+.page-inline-toolbar p {
+  margin-top: 5px;
   color: var(--muted);
   font-size: 13px;
 }
 
-.import-stat {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  text-align: center;
+.invoice-import-task-table td {
+  white-space: nowrap;
 }
 
-.import-stat strong {
-  font-size: 22px;
-}
-
-.import-stat.success strong {
+.success-text {
   color: var(--success);
 }
 
-.import-stat.warning strong {
-  color: #d46b08;
+.muted-text {
+  color: var(--muted);
 }
 
-.malaysia-import-notice {
+.invoice-import-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.invoice-import-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 70px;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+}
+
+.invoice-import-step span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f0f1f3;
+  color: #737b8c;
+}
+
+.invoice-import-step.active {
+  border-bottom-color: var(--primary);
+  color: var(--text);
+}
+
+.invoice-import-step.active span {
+  background: var(--primary);
+  color: #fff;
+}
+
+.invoice-import-step.done span {
+  background: #edf3ff;
+  color: var(--primary);
+}
+
+.invoice-import-stage {
+  display: grid;
+  gap: 20px;
+}
+
+.invoice-import-template-row,
+.invoice-import-upload-row,
+.invoice-import-check-result,
+.invoice-import-result,
+.invoice-import-progress {
+  padding: 24px;
+  background: #f7f8fa;
+}
+
+.invoice-import-template-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.invoice-import-template-row h3,
+.invoice-import-upload-row h3,
+.invoice-import-check-result h3,
+.invoice-import-result h3 {
   margin: 0;
+  font-size: 16px;
+}
+
+.invoice-import-template-row p,
+.invoice-import-check-result p,
+.invoice-import-result p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.invoice-import-upload-row {
+  display: grid;
+  gap: 16px;
+}
+
+.invoice-import-upload-box {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 210px;
+  border: 1px dashed #cfd4dc;
+  background: #fff;
+  cursor: pointer;
+}
+
+.invoice-import-upload-box:hover {
+  border-color: var(--primary);
+}
+
+.invoice-import-upload-box small {
+  color: var(--muted);
+}
+
+.invoice-import-file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  background: #21a366;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 500;
+}
+
+.invoice-import-file-name {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.invoice-import-remark {
+  min-height: 76px;
+  padding: 13px 15px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  font: inherit;
+}
+
+.invoice-import-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.invoice-import-progress {
+  place-items: center;
+  min-height: 260px;
+  text-align: center;
+}
+
+.invoice-import-progress-bar {
+  width: min(760px, 90%);
+  height: 10px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e5e7eb;
+}
+
+.invoice-import-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+
+.invoice-import-check-result,
+.invoice-import-result {
+  align-content: start;
+  min-height: 220px;
+}
+
+.invoice-import-result.success h3 {
+  color: var(--success);
+}
+
+.invoice-import-result.failed h3 {
+  color: var(--danger);
 }
 
 .customer-master-drawer {
