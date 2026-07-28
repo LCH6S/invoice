@@ -727,7 +727,7 @@ fieldset.field input {
 .refresh-progress-link:focus-visible,
 .taxpayer-guide-link:focus-visible,
 .taxpayer-guide-helper a:focus-visible,
-.authorization-guide-link:focus-visible,
+.authorization-guide-banner:focus-visible,
 .taxpayer-type-row:focus-visible,
 .taxpayer-sheet-option:focus-visible,
 .taxpayer-sheet-cancel:focus-visible,
@@ -931,13 +931,27 @@ fieldset.field input {
   line-height: 18px;
 }
 
-.authorization-guide-link {
-  display: inline-block;
-  margin: 8px 16px 0;
-  color: var(--sqb-link);
-  font-size: 12px;
-  line-height: 18px;
-  text-decoration: none;
+.authorization-guide-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+  color: var(--sqb-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.authorization-guide-banner .bi {
+  color: var(--sqb-helper);
+  font-size: 14px;
 }
 
 .tencent-status-hero {

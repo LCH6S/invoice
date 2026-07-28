@@ -1,5 +1,6 @@
 const params = new URLSearchParams(location.search);
 const AUTO_REFRESH_INTERVAL_MS = 10_000;
+const AUTHORIZATION_FALLBACK_MESSAGE = "需企业法人或财务负责人使用微信授权开通。";
 const TENCENT_ABILITIES = [
   "BASE_ABILITY",
   "REAL_ESTATE_ABILITY",
@@ -217,7 +218,8 @@ function validateTaxpayerType() {
 function confirmInvoiceInformation() {
   if (!validateTaxpayerType()) return;
   window.demoState.view = "tencent-opening";
-  enterTencentOpening({ launchAfterCreate: true });
+  stopAutoRefresh();
+  render();
 }
 
 async function enterTencentOpening({ launchAfterCreate = false } = {}) {
@@ -240,6 +242,16 @@ async function enterTencentOpening({ launchAfterCreate = false } = {}) {
 
   createTencentInvite();
   if (launchAfterCreate && window.demoState.inviteStatus === "opening") {
+    launchWechatMiniProgram();
+  }
+}
+
+async function authorizeTencentOpening() {
+  if (window.demoState.inviteStatus === "idle") {
+    await enterTencentOpening({ launchAfterCreate: true });
+    return;
+  }
+  if (window.demoState.inviteStatus === "opening") {
     launchWechatMiniProgram();
   }
 }
@@ -275,10 +287,10 @@ function switchTencentChannelIfComplete() {
 
 function currentOpeningMessage() {
   if (window.demoState.tencentStatusCode === "AUTHORIZATION_PENDING") {
-    return "请微信商户管理员扫码授权";
+    return AUTHORIZATION_FALLBACK_MESSAGE;
   }
   return TENCENT_PROCESSING_STATUS_META[window.demoState.tencentStatusCode]
-    || "腾讯正在处理，请稍后刷新开通进度";
+    || AUTHORIZATION_FALLBACK_MESSAGE;
 }
 
 function openGuide(view) {
@@ -515,12 +527,15 @@ function renderTencentStatusContent() {
   if (window.demoState.inviteStatus === "opening") {
     return `<span class="tencent-status-description">${currentOpeningMessage()}</span>`;
   }
-  return "";
+  return `<span class="tencent-status-description">${AUTHORIZATION_FALLBACK_MESSAGE}</span>`;
 }
 
-function renderTencentQrAction() {
-  if (window.demoState.inviteStatus !== "opening") return "";
-  return `<button class="inline-action-button" data-action="open-qr-preview">查看授权二维码</button>`;
+function renderAuthorizationGuideBanner() {
+  return `
+    <button class="authorization-guide-banner" type="button" data-action="open-authorization-guide">
+      <span>查看详细操作说明</span>
+      <i class="bi bi-b-arrow-right" aria-hidden="true"></i>
+    </button>`;
 }
 
 function renderTencentOpeningSection() {
@@ -530,7 +545,6 @@ function renderTencentOpeningSection() {
       <div class="tencent-status-hero ${status.code}">
         <h1 class="tencent-status-title">${status.label}</h1>
         ${renderTencentStatusContent()}
-        ${renderTencentQrAction()}
       </div>
       <div class="tencent-subject-section">
         <h2 class="tencent-subject-title">开通主体</h2>
@@ -539,7 +553,6 @@ function renderTencentOpeningSection() {
           <div class="info-row"><span>统一社会信用代码</span><strong>${window.demoState.license.taxpayerId}</strong></div>
           <div class="info-row"><span>微信商户号</span><strong>${window.demoState.wechatMerchantNo || "--"}</strong></div>
         </div>
-        <a class="authorization-guide-link" href="#authorization-guide" data-action="open-authorization-guide">查看详细操作说明</a>
       </div>
     </section>`;
 }
@@ -781,11 +794,14 @@ function confirmRetry() {
   window.demoState.scenario = "normal";
   window.demoState.inviteStatus = "idle";
   window.demoState.accessStatus = "not_started";
+  window.demoState.abilities = {};
+  window.demoState.tencentStatusCode = "AUTHORIZATION_PENDING";
   window.demoState.failureStatusCode = "";
   window.demoState.failureDescription = "";
   window.demoState.failureReason = "";
   window.demoState.error = "";
-  enterTencentOpening();
+  stopAutoRefresh();
+  render();
 }
 
 function exitOpeningFlow() {
@@ -930,10 +946,17 @@ function renderPageActions() {
 
   if (hasCompletedTencentOpening()) return "";
 
-  if (window.demoState.inviteStatus === "opening" && !hasCompletedTencentOpening()) {
+  if (window.demoState.inviteStatus === "idle") {
     return `
       <div class="page-actions single">
         <button class="action-button primary" data-action="authorize">去授权</button>
+      </div>`;
+  }
+
+  if (window.demoState.inviteStatus === "opening" && !hasCompletedTencentOpening()) {
+    return `
+      <div class="page-actions single">
+        <button class="action-button primary" data-action="authorize">继续授权</button>
       </div>`;
   }
 
@@ -967,6 +990,7 @@ function renderPageContent() {
     if (hasCompletedTencentOpening()) return renderSuccessResult();
     return `
       <div class="opening-sections">
+        ${renderAuthorizationGuideBanner()}
         ${renderTencentOpeningSection()}
         ${renderTencentProgressQueryAction()}
       </div>`;
@@ -1012,7 +1036,7 @@ document.addEventListener("click", (event) => {
   if (action === "open-taxpayer-guide") openGuide("taxpayer-guide");
   if (action === "open-authorization-guide") openGuide("authorization-guide");
   if (action === "return-from-guide") returnFromGuide();
-  if (action === "authorize") launchWechatMiniProgram();
+  if (action === "authorize") authorizeTencentOpening();
   if (action === "complete-authorization") completeAuthorization();
   if (action === "open-qr-preview") openQrPreview();
   if (action === "close-qr-preview"
