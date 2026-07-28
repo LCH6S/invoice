@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>运营管理平台</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="ops-topbar">
+      <div class="ops-brand" aria-label="运营管理平台">
+        <span class="ops-brand-mark" aria-hidden="true">收</span>
+        <span>运营管理平台</span>
+      </div>
+      <div class="ops-account">
+        <span>我的待办 <strong>1</strong></span>
+        <span class="ops-avatar" aria-hidden="true">刘</span>
+        <span>刘辰浩</span>
+        <span class="ops-account-arrow" aria-hidden="true">⌄</span>
+      </div>
+      <nav class="ops-topnav" aria-label="业务导航">
+        <button type="button">基础业务</button>
+        <button type="button">支付业务</button>
+        <button type="button">风控管理</button>
+        <button type="button">增值业务</button>
+        <button type="button">支撑业务</button>
+        <button type="button">产品管理</button>
+        <button class="active" type="button">集团客户</button>
+      </nav>
+    </header>
+
+    <div class="ops-shell">
+      <aside class="ops-sidebar" aria-label="左侧菜单">
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>销售类订单</span><span aria-hidden="true">⌄</span>
+        </button>
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>预授权类订单</span><span aria-hidden="true">⌄</span>
+        </button>
+        <section class="ops-side-group">
+          <button class="ops-side-item ops-side-parent active" type="button">
+            <span>客户管理</span><span aria-hidden="true">⌃</span>
+          </button>
+          <button class="ops-side-item ops-side-child active" id="customerMenuButton" type="button">客户列表</button>
+          <button class="ops-side-item ops-side-child" type="button">商户列表</button>
+        </section>
+        <section class="ops-side-group">
+          <button class="ops-side-item ops-side-parent" type="button">
+            <span>品牌管理</span><span aria-hidden="true">⌃</span>
+          </button>
+          <button class="ops-side-item ops-side-child" type="button">品牌列表</button>
+          <button class="ops-side-item ops-side-child" type="button">门店列表</button>
+        </section>
+        <button class="ops-side-item ops-side-parent ops-side-link" type="button"><span>礼品卡交易查询</span></button>
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>电子发票</span><span aria-hidden="true">⌄</span>
+        </button>
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>电子小票</span><span aria-hidden="true">⌄</span>
+        </button>
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>轻POS</span><span aria-hidden="true">⌄</span>
+        </button>
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>IOT管理</span><span aria-hidden="true">⌄</span>
+        </button>
+        <button class="ops-side-item ops-side-parent" type="button">
+          <span>小号管理</span><span aria-hidden="true">⌄</span>
+        </button>
+        <button class="ops-side-item ops-side-parent ops-side-link" type="button"><span>导出记录</span></button>
+      </aside>
+      <main class="main ops-main" id="app" tabindex="-1"></main>
+    </div>
+
+    <div id="modalRoot"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
