@@ -4012,7 +4012,9 @@ function readCompanyDraftFromForm() {
   state.companyDraft.address = value("companyAddress", state.companyDraft.address);
   state.companyDraft.email = value("companyEmail", state.companyDraft.email);
   state.companyDraft.phone = value("companyPhone", state.companyDraft.phone);
-  readIndustrySelectionFromForm(state.companyDraft, "company");
+  if (state.companyDraft.country === "MY") {
+    readIndustrySelectionFromForm(state.companyDraft, "company");
+  }
   state.companyDraft.businessDesc = value("companyBusinessDesc", state.companyDraft.businessDesc);
   state.companyDraft.remark = value("companyRemark", state.companyDraft.remark);
   if (state.companyDraft.country === "MY") {
@@ -4056,7 +4058,6 @@ function renderCompanyEditor() {
         <span class="field-message">${escapeHtml(errors.type || "")}</span>
       </label>
       ${parentField}
-      ${renderIndustryFields({ prefix: "company", record: draft, error: errors.industry })}
       <label class="field"><span>备注</span><textarea id="companyRemark" placeholder="请输入备注（选填）">${escapeHtml(draft.remark || "")}</textarea></label>
     `
     : `
@@ -4070,7 +4071,6 @@ function renderCompanyEditor() {
         <span class="field-message">${escapeHtml(errors.type || "")}</span>
       </label>
       ${parentField}
-      ${renderIndustryFields({ prefix: "company", record: draft, error: errors.industry })}
       <label class="field"><span>备注</span><textarea id="companyRemark" placeholder="请输入备注（选填）">${escapeHtml(draft.remark || "")}</textarea></label>
     `;
   const malaysiaFields = `
@@ -4128,8 +4128,8 @@ function saveCompany() {
   } else {
     draft.parentCompanyId = "";
   }
-  if (!draft.industryLevelTwoCode) errors.industry = "请选择二级行业";
   if (draft.country === "MY") {
+    if (!draft.industryLevelTwoCode) errors.industry = "请选择二级行业";
     if (!draft.address) errors.address = "请填写注册地址";
     if (!draft.phone) errors.phone = "请填写联系电话";
     if (!draft.businessDesc) errors.businessDesc = "请填写经营业务说明";
