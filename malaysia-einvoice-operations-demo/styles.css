@@ -524,6 +524,10 @@ input[readonly] {
   color: var(--primary);
 }
 
+.button.link.danger-link {
+  color: var(--danger);
+}
+
 .button.small {
   min-height: 30px;
   padding: 0 12px;
@@ -2427,56 +2431,6 @@ input[readonly] {
   margin-left: 14px;
 }
 
-.company-country-tabs {
-  display: flex;
-  gap: 30px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-}
-
-.company-country-tabs button {
-  position: relative;
-  min-height: 48px;
-  padding: 0 2px;
-  border: 0;
-  background: transparent;
-  color: #646a73;
-}
-
-.company-country-tabs button.active {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.company-country-tabs button.active::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: var(--primary);
-  content: "";
-}
-
-.company-country-tabs button span {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  margin-left: 5px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background: #f2f3f5;
-  color: #646a73;
-  font-size: 12px;
-}
-
-.company-country-tabs button.active span {
-  background: var(--primary-light);
-  color: var(--primary);
-}
-
 .company-filter-fields {
   flex: 1;
 }
@@ -2485,12 +2439,8 @@ input[readonly] {
   width: 205px;
 }
 
-.company-list-table.malaysia {
-  min-width: 900px;
-}
-
-.company-list-table.china {
-  min-width: 900px;
+.company-list-table {
+  min-width: 1080px;
 }
 
 .brand-list-table {
@@ -2504,52 +2454,32 @@ input[readonly] {
   white-space: nowrap;
 }
 
-.company-list-table.malaysia th:nth-child(1) {
+.company-list-table th:nth-child(1) {
   width: 230px;
 }
 
-.company-list-table.malaysia th:nth-child(2) {
+.company-list-table th:nth-child(2) {
+  width: 110px;
+}
+
+.company-list-table th:nth-child(3) {
   width: 90px;
 }
 
-.company-list-table.malaysia th:nth-child(3) {
-  width: 190px;
+.company-list-table th:nth-child(4) {
+  width: 180px;
 }
 
-.company-list-table.malaysia th:nth-child(4) {
-  width: 210px;
-}
-
-.company-list-table.malaysia th:nth-child(5) {
-  width: 120px;
-}
-
-.company-list-table.malaysia th:nth-child(6) {
-  width: 90px;
-}
-
-.company-list-table.china th:nth-child(1) {
+.company-list-table th:nth-child(5) {
   width: 230px;
 }
 
-.company-list-table.china th:nth-child(2) {
-  width: 90px;
-}
-
-.company-list-table.china th:nth-child(3) {
-  width: 190px;
-}
-
-.company-list-table.china th:nth-child(4) {
-  width: 210px;
-}
-
-.company-list-table.china th:nth-child(5) {
+.company-list-table th:nth-child(6) {
   width: 120px;
 }
 
-.company-list-table.china th:nth-child(6) {
-  width: 90px;
+.company-list-table th:nth-child(7) {
+  width: 100px;
 }
 
 .company-country-context {
@@ -2967,24 +2897,118 @@ input[readonly] {
   padding: 24px 26px 32px;
 }
 
-.brand-logo-management .legacy-section-head {
+.brand-logo-scheme-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.brand-logo-scheme-toolbar h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.brand-logo-scheme-toolbar p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.brand-logo-scheme-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo-scheme-toolbar-actions > span {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.brand-logo-scheme-list {
+  display: grid;
+  gap: 16px;
+}
+
+.brand-logo-scheme-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.brand-logo-scheme-card:hover {
+  border-color: #b7c8eb;
+  box-shadow: var(--shadow);
+}
+
+.brand-logo-scheme-head,
+.brand-logo-scheme-title,
+.brand-logo-scheme-actions {
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo-scheme-head {
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 18px;
 }
 
-.brand-logo-management .setting-card {
-  border: 1px solid var(--line);
+.brand-logo-scheme-title,
+.brand-logo-scheme-actions {
+  gap: 12px;
 }
 
-.brand-logo-management .setting-card h3 {
-  margin: 0 0 16px;
-  font-size: 15px;
+.brand-logo-scheme-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.brand-logo-scheme-assets {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(320px, 2fr);
+  gap: 32px;
+  padding: 18px;
+  border-radius: var(--radius);
+  background: #f7f8fa;
+}
+
+.brand-logo-scheme-asset > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.brand-logo-scheme-asset .logo-preview {
+  min-height: 112px;
+  background-color: #fff;
 }
 
 .brand-logo-management .logo-file-name {
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   color: var(--muted);
-  font-size: 13px;
-  text-align: center;
+  font-size: 12px;
+  text-align: left;
+}
+
+@media (max-width: 900px) {
+  .brand-logo-scheme-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .brand-logo-scheme-toolbar-actions {
+    justify-content: space-between;
+  }
+
+  .brand-logo-scheme-assets {
+    grid-template-columns: 1fr;
+  }
 }
 
 .brand-empty-tab {

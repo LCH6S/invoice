@@ -1,6 +1,7 @@
 const app = document.getElementById("app");
 const modalRoot = document.getElementById("modalRoot");
 const toast = document.getElementById("toast");
+const BRAND_LOGO_SET_LIMIT = 7;
 
 const chinaTaxClassificationCatalog = [
   { code: "1040201000000000000", shortName: "服装" },
@@ -629,6 +630,8 @@ function demoChinaInvoiceConfig({ category, alias, companyId = "", classificatio
         alias,
         classification,
         taxShortName,
+        taxType: "VAT",
+        taxTypeName: "增值税",
         taxRate,
         preferentialPolicy: "无",
         specifiedCompanyId: companyId,
@@ -640,9 +643,11 @@ function demoChinaInvoiceConfig({ category, alias, companyId = "", classificatio
           {
             id: `FB-${category}`,
             companyId,
-            alias,
+            itemName: alias,
             classification,
             taxShortName,
+            taxType: "VAT",
+            taxTypeName: "增值税",
             taxRate,
             preferentialPolicy: "无",
             updatedAt: "2026-07-28 10:00",
@@ -674,9 +679,12 @@ function demoMalaysiaInvoiceConfig({ category, alias, companyId = "", classifica
         alias,
         classification,
         classificationName: classificationItem?.name || "",
+        taxShortName: classificationItem?.name || "",
         taxType,
         taxTypeName: taxTypeItem?.name || "",
         taxRate,
+        preferentialPolicy: "无",
+        specifiedCompanyId: companyId,
         updatedAt: "2026-07-28 10:00",
       },
     ],
@@ -688,9 +696,11 @@ function demoMalaysiaInvoiceConfig({ category, alias, companyId = "", classifica
             itemName: alias,
             classification,
             classificationName: classificationItem?.name || "",
+            taxShortName: classificationItem?.name || "",
             taxType,
             taxTypeName: taxTypeItem?.name || "",
             taxRate,
+            preferentialPolicy: "无",
             updatedAt: "2026-07-28 10:00",
           },
         ]
@@ -1210,11 +1220,9 @@ const state = {
   customerIdKeyword: "",
   customerSalesKeyword: "",
   customerTypeKeyword: "",
-  companyCountryTab: "MY",
+  companyCountryKeyword: "",
   companyNameKeyword: "",
   companyRegistrationKeyword: "",
-  companyTinKeyword: "",
-  companySstKeyword: "",
   companyTypeKeyword: "",
   companyInvoiceStatusKeyword: "",
   companyBranchNameKeyword: "",
@@ -1227,6 +1235,8 @@ const state = {
   brandStoreIdKeyword: "",
   brandStoreNameKeyword: "",
   brandStoreNoKeyword: "",
+  brandLogoSchemeDraft: null,
+  brandLogoSchemeFileError: "",
   customerDraft: null,
   customerErrors: {},
   companyDraft: null,
@@ -2040,6 +2050,8 @@ function closeModal() {
   state.customerDraft = null;
   state.customerErrors = {};
   state.storeDraft = null;
+  state.brandLogoSchemeDraft = null;
+  state.brandLogoSchemeFileError = "";
 }
 
 function render() {
@@ -2192,67 +2204,53 @@ function renderCustomerTab(customer) {
   return renderProductFeature(customer);
 }
 
+function companyPrimaryRegistration(company) {
+  return company.country === "MY"
+    ? { label: "商业注册号码（BRN）", value: company.licenses.BRN || "" }
+    : { label: "统一社会信用代码", value: company.licenses.USCC || "" };
+}
+
 function renderCompanyList(customer) {
-  const country = state.companyCountryTab;
   const nameKeyword = state.companyNameKeyword.toLowerCase();
   const registrationKeyword = state.companyRegistrationKeyword.toLowerCase();
-  const tinKeyword = state.companyTinKeyword.toLowerCase();
-  const sstKeyword = state.companySstKeyword.toLowerCase();
   const companies = customer.companies.filter((company) => {
-    if (company.country !== country) return false;
+    const matchesCountry = !state.companyCountryKeyword || company.country === state.companyCountryKeyword;
     const matchesName = !nameKeyword || company.legalName.toLowerCase().includes(nameKeyword);
-    const primaryRegistration = country === "MY" ? company.licenses.BRN : company.licenses.USCC;
-    const matchesRegistration = !registrationKeyword || (primaryRegistration || "").toLowerCase().includes(registrationKeyword);
-    const matchesTin = country !== "MY" || !tinKeyword || (company.licenses.TIN || "").toLowerCase().includes(tinKeyword);
-    const matchesSst = country !== "MY" || !sstKeyword || (company.licenses.SST || "").toLowerCase().includes(sstKeyword);
+    const primaryRegistration = companyPrimaryRegistration(company).value;
+    const matchesRegistration = !registrationKeyword || primaryRegistration.toLowerCase().includes(registrationKeyword);
     const matchesType = !state.companyTypeKeyword || (company.type || "Head") === state.companyTypeKeyword;
     const matchesInvoiceStatus = !state.companyInvoiceStatusKeyword || company.invoiceStatus === state.companyInvoiceStatusKeyword;
-    return matchesName && matchesRegistration && matchesTin && matchesSst && matchesType && matchesInvoiceStatus;
+    return matchesCountry && matchesName && matchesRegistration && matchesType && matchesInvoiceStatus;
   });
-  const countryCount = (countryCode) => customer.companies.filter((company) => company.country === countryCode).length;
-  const commonFilters = `
-    <label class="field"><span>公司类型</span>
-      <select id="companyTypeInput">
-        <option value="">全部</option>
-        <option value="Head" ${state.companyTypeKeyword === "Head" ? "selected" : ""}>总公司</option>
-        <option value="Branch" ${state.companyTypeKeyword === "Branch" ? "selected" : ""}>分公司</option>
-      </select>
-    </label>
-    <label class="field"><span>发票功能状态</span>
-      <select id="companyInvoiceStatusInput">
-        <option value="">全部</option>
-        <option value="unopened" ${state.companyInvoiceStatusKeyword === "unopened" ? "selected" : ""}>未开通</option>
-        <option value="opened" ${state.companyInvoiceStatusKeyword === "opened" ? "selected" : ""}>已开通</option>
-        ${
-          country === "CN"
-            ? `
-              <option value="opening" ${state.companyInvoiceStatusKeyword === "opening" ? "selected" : ""}>开通中</option>
-              <option value="failed" ${state.companyInvoiceStatusKeyword === "failed" ? "selected" : ""}>开通失败</option>
-            `
-            : ""
-        }
-      </select>
-    </label>
-  `;
   return `
     <div class="tab-panel">
-      <div class="company-country-tabs" role="tablist" aria-label="公司国家/地区">
-        <button class="${country === "CN" ? "active" : ""}" type="button" role="tab" aria-selected="${country === "CN"}" data-action="company-country" data-country="CN">中国 <span>${countryCount("CN")}</span></button>
-        <button class="${country === "MY" ? "active" : ""}" type="button" role="tab" aria-selected="${country === "MY"}" data-action="company-country" data-country="MY">马来西亚 <span>${countryCount("MY")}</span></button>
-      </div>
       <div class="toolbar">
         <div class="filter-fields company-filter-fields">
           <label class="field"><span>公司名称</span><input id="companyNameInput" value="${escapeHtml(state.companyNameKeyword)}" placeholder="请输入公司名称" /></label>
-          <label class="field"><span>${country === "MY" ? "商业注册号码（BRN）" : "统一社会信用代码"}</span><input id="companyRegistrationInput" value="${escapeHtml(state.companyRegistrationKeyword)}" placeholder="请输入${country === "MY" ? "商业注册号码（BRN）" : "统一社会信用代码"}" /></label>
-          ${
-            country === "MY"
-              ? `
-                <label class="field"><span>税务识别号码（TIN）</span><input id="companyTINFilterInput" value="${escapeHtml(state.companyTinKeyword)}" placeholder="请输入税务识别号码（TIN）" /></label>
-                <label class="field"><span>销售与服务税注册号码（SST）</span><input id="companySSTFilterInput" value="${escapeHtml(state.companySstKeyword)}" placeholder="请输入销售与服务税注册号码（SST）" /></label>
-              `
-              : ""
-          }
-          ${commonFilters}
+          <label class="field"><span>国家/地区</span>
+            <select id="companyCountryFilterInput">
+              <option value="">全部</option>
+              <option value="CN" ${state.companyCountryKeyword === "CN" ? "selected" : ""}>中国</option>
+              <option value="MY" ${state.companyCountryKeyword === "MY" ? "selected" : ""}>马来西亚</option>
+            </select>
+          </label>
+          <label class="field"><span>注册证照号码</span><input id="companyRegistrationInput" value="${escapeHtml(state.companyRegistrationKeyword)}" placeholder="请输入统一社会信用代码或 BRN" /></label>
+          <label class="field"><span>公司类型</span>
+            <select id="companyTypeInput">
+              <option value="">全部</option>
+              <option value="Head" ${state.companyTypeKeyword === "Head" ? "selected" : ""}>总公司</option>
+              <option value="Branch" ${state.companyTypeKeyword === "Branch" ? "selected" : ""}>分公司</option>
+            </select>
+          </label>
+          <label class="field"><span>发票功能状态</span>
+            <select id="companyInvoiceStatusInput">
+              <option value="">全部</option>
+              <option value="unopened" ${state.companyInvoiceStatusKeyword === "unopened" ? "selected" : ""}>未开通</option>
+              <option value="opened" ${state.companyInvoiceStatusKeyword === "opened" ? "selected" : ""}>已开通</option>
+              <option value="opening" ${state.companyInvoiceStatusKeyword === "opening" ? "selected" : ""}>开通中</option>
+              <option value="failed" ${state.companyInvoiceStatusKeyword === "failed" ? "selected" : ""}>开通失败</option>
+            </select>
+          </label>
           <div class="inline-actions">
             <button class="button primary" type="button" data-action="search-companies">查询</button>
             <button class="button" type="button" data-action="reset-companies">重置</button>
@@ -2261,32 +2259,26 @@ function renderCompanyList(customer) {
         <div class="toolbar-actions"><button class="button primary" type="button" data-action="create-company">创建公司</button></div>
       </div>
       <div class="table-scroll">
-        <table class="data-table company-list-table ${country === "MY" ? "malaysia" : "china"}">
+        <table class="data-table company-list-table">
           <thead>
-            ${
-              country === "MY"
-                ? "<tr><th>公司名称</th><th>公司类型</th><th>上级公司</th><th>商业注册号码（BRN）</th><th>发票功能状态</th><th>操作</th></tr>"
-                : "<tr><th>公司名称</th><th>公司类型</th><th>上级公司</th><th>统一社会信用代码</th><th>发票功能状态</th><th>操作</th></tr>"
-            }
+            <tr><th>公司名称</th><th>国家/地区</th><th>公司类型</th><th>上级公司</th><th>注册证照号码</th><th>发票功能状态</th><th>操作</th></tr>
           </thead>
           <tbody>
             ${companies
               .map((company) => {
+                const primaryRegistration = companyPrimaryRegistration(company);
                 return `
                   <tr>
                     <td><strong>${escapeHtml(company.legalName)}</strong></td>
+                    <td>${escapeHtml(countries[company.country] || "-")}</td>
                     <td>${companyTypes[company.type || "Head"]}</td>
                     <td>${escapeHtml(parentCompanyName(customer, company))}</td>
-                    ${
-                      country === "MY"
-                        ? `<td>${escapeHtml(company.licenses.BRN || "-")}</td>`
-                        : `<td>${escapeHtml(company.licenses.USCC || "-")}</td>`
-                    }
+                    <td>${escapeHtml(primaryRegistration.value || "-")}</td>
                     <td>${statusTag(company.invoiceStatus)}</td>
                     <td class="actions">
                       <button class="button link" type="button" data-action="open-company-detail" data-id="${company.id}">详情</button>
                       ${
-                        country === "MY"
+                        company.country === "MY"
                           ? `<button class="button link" type="button" data-action="open-company-invoice-from-list" data-id="${company.id}">开通</button>`
                           : ""
                       }
@@ -2903,23 +2895,26 @@ function renderBrandTab(customer, brand) {
     `;
   }
   if (state.brandTab === "logo") {
+    const logoSets = ensureBrandLogoSets(brand);
     return `
       <div class="tab-panel brand-logo-management">
-        <div class="legacy-section-head">
-          <h2>默认 Logo</h2>
-          <button class="button primary" type="button" data-action="edit-brand-logo">编辑</button>
+        <div class="brand-logo-scheme-toolbar">
+          <div>
+            <h2>Logo 方案</h2>
+            <p>每组方案包含品牌标准 Logo 和品牌横版 Logo，最多可设置 ${BRAND_LOGO_SET_LIMIT} 组。</p>
+          </div>
+          <div class="brand-logo-scheme-toolbar-actions">
+            <span>已设置 ${logoSets.length} / ${BRAND_LOGO_SET_LIMIT} 组</span>
+            <button
+              class="button primary"
+              type="button"
+              data-action="add-brand-logo-scheme"
+              ${logoSets.length >= BRAND_LOGO_SET_LIMIT ? "disabled" : ""}
+            >添加 Logo 方案</button>
+          </div>
         </div>
-        <div class="logo-layout">
-          <article class="setting-card">
-            <h3>品牌标准 Logo</h3>
-            <div class="logo-preview"><span class="demo-logo">${escapeHtml(brand.logoText)}</span></div>
-            <p class="logo-file-name">${escapeHtml(brand.standardLogo || "-")}</p>
-          </article>
-          <article class="setting-card">
-            <h3>品牌横版 Logo</h3>
-            <div class="logo-preview"><span class="demo-logo horizontal">${escapeHtml(brand.logoHorizontalText)}</span></div>
-            <p class="logo-file-name">${escapeHtml(brand.horizontalLogo || "-")}</p>
-          </article>
+        <div class="brand-logo-scheme-list">
+          ${logoSets.map((scheme) => renderBrandLogoSchemeCard(brand, scheme)).join("")}
         </div>
       </div>
     `;
@@ -2928,6 +2923,61 @@ function renderBrandTab(customer, brand) {
     return `<div class="tab-panel brand-empty-tab" aria-label="${escapeHtml(state.brandTab)}"></div>`;
   }
   return renderBrandStoreManagement(brand);
+}
+
+function ensureBrandLogoSets(brand) {
+  if (!Array.isArray(brand.logoSets) || !brand.logoSets.length) {
+    brand.logoSets = [
+      {
+        id: `${brand.id}-logo-default`,
+        name: "默认版本",
+        standardLogo: brand.standardLogo || "",
+        horizontalLogo: brand.horizontalLogo || "",
+        isDefault: true,
+        createdAt: brand.createdAt || nowText(),
+      },
+    ];
+  }
+  if (!brand.logoSets.some((scheme) => scheme.isDefault)) brand.logoSets[0].isDefault = true;
+  return brand.logoSets;
+}
+
+function brandLogoPreviewText(brand, scheme, horizontal = false) {
+  if (scheme.isDefault) return horizontal ? brand.logoHorizontalText : brand.logoText;
+  return horizontal ? scheme.name.toUpperCase() : scheme.name.slice(0, 2).toUpperCase();
+}
+
+function renderBrandLogoSchemeCard(brand, scheme) {
+  return `
+    <article class="brand-logo-scheme-card">
+      <div class="brand-logo-scheme-head">
+        <div class="brand-logo-scheme-title">
+          <h3>${escapeHtml(scheme.name)}</h3>
+          ${scheme.isDefault ? '<span class="tag success">默认</span>' : ""}
+        </div>
+        <div class="brand-logo-scheme-actions">
+          <button class="button link" type="button" data-action="edit-brand-logo-scheme" data-id="${scheme.id}">编辑</button>
+          ${
+            scheme.isDefault
+              ? ""
+              : `<button class="button link danger-link" type="button" data-action="delete-brand-logo-scheme" data-id="${scheme.id}">删除</button>`
+          }
+        </div>
+      </div>
+      <div class="brand-logo-scheme-assets">
+        <div class="brand-logo-scheme-asset">
+          <span>品牌标准 Logo</span>
+          <div class="logo-preview"><span class="demo-logo">${escapeHtml(brandLogoPreviewText(brand, scheme))}</span></div>
+          <p class="logo-file-name">${escapeHtml(scheme.standardLogo || "-")}</p>
+        </div>
+        <div class="brand-logo-scheme-asset">
+          <span>品牌横版 Logo</span>
+          <div class="logo-preview"><span class="demo-logo horizontal">${escapeHtml(brandLogoPreviewText(brand, scheme, true))}</span></div>
+          <p class="logo-file-name">${escapeHtml(scheme.horizontalLogo || "-")}</p>
+        </div>
+      </div>
+    </article>
+  `;
 }
 
 function filteredBrandStores(brand) {
@@ -3107,7 +3157,7 @@ function renderInvoiceBrandList(customer) {
 
 function invoiceImportRuleLabel(brand, kind = state.settingsImportKind) {
   if (kind === "rules") return "商品开票匹配规则";
-  return brand?.country === "MY" ? "税号兜底开票规则" : "税号兜底开票项目配置";
+  return "税号兜底开票项目配置";
 }
 
 function invoiceImportTaskKey(customer, brand, kind = state.settingsImportKind) {
@@ -3115,14 +3165,9 @@ function invoiceImportTaskKey(customer, brand, kind = state.settingsImportKind) 
 }
 
 function invoiceImportTemplateFields(brand, kind = state.settingsImportKind) {
-  if (brand.country === "MY") {
-    return kind === "rules"
-      ? "商品大类、大类别名、Classification Code、Tax Type、Tax Rate"
-      : "Supplier TIN、兜底开票项目名称、Classification Code、Tax Type、Tax Rate";
-  }
   return kind === "rules"
-    ? "商品大类、大类别名、税收分类编码、税率、优惠政策、指定开票税号"
-    : "税号、纳税人名称、大类别名、税收分类编码、税率、优惠政策";
+    ? "商品大类、大类别名、税收分类编码、税种、税率、优惠政策、指定开票税号"
+    : "税号、大类别名、税收分类编码、税种、税率、优惠政策";
 }
 
 function ensureInvoiceImportTasks(customer, brand, kind = state.settingsImportKind) {
@@ -3373,14 +3418,23 @@ function renderBrandInvoiceSettings(customer) {
     return renderInvoiceBrandList(customer);
   }
   ensureBrandInvoiceConfig(brand);
+  const sharedContent =
+    state.settingsTab === "rules"
+      ? renderUnifiedRuleSettingsContent(customer, brand)
+      : state.settingsTab === "fallback"
+        ? renderUnifiedFallbackSettingsContent(customer, brand)
+        : state.settingsTab === "payments"
+          ? renderPaymentSettingsContent(brand)
+          : "";
   if (brand.country === "MY") {
     return `
       <nav class="brand-config-tabs" aria-label="马来西亚品牌开票设置">
         ${settingsNavButton("stores", "门店开票设置")}
         ${settingsNavButton("rules", "商品开票匹配规则")}
-        ${settingsNavButton("fallback", "税号兜底开票规则")}
+        ${settingsNavButton("fallback", "税号兜底开票项目配置")}
+        ${settingsNavButton("payments", "不可开票支付方式")}
       </nav>
-      <div class="brand-settings-content">${renderMalaysiaSettingsContent(customer, brand)}</div>
+      <div class="brand-settings-content">${sharedContent || renderMalaysiaSettingsContent(customer, brand)}</div>
     `;
   }
   return `
@@ -3391,7 +3445,7 @@ function renderBrandInvoiceSettings(customer) {
       ${settingsNavButton("payments", "不可开票支付方式")}
       ${settingsNavButton("application", "开票入口与申请页设置")}
     </nav>
-    <div class="brand-settings-content">${renderChinaSettingsContent(customer, brand)}</div>
+    <div class="brand-settings-content">${sharedContent || renderChinaSettingsContent(customer, brand)}</div>
   `;
 }
 
@@ -3420,34 +3474,233 @@ function ensureBrandInvoiceConfig(brand) {
     fileName: "",
     dataUrl: "",
   };
-  if (brand.country === "MY") {
-    brand.config.rules.forEach((rule) => {
+  brand.config.rules.forEach((rule) => {
+    rule.preferentialPolicy = rule.preferentialPolicy === "否" ? "无" : rule.preferentialPolicy || "无";
+    rule.specifiedCompanyId ||= "";
+    if (brand.country === "MY") {
       const classification = malaysiaClassificationCatalog.find((item) => item.code === rule.classification);
       const taxTypeCode = rule.taxType || (["6%", "8%"].includes(rule.taxRate) ? "02" : "01");
       const taxType = malaysiaTaxTypeCatalog.find((item) => item.code === taxTypeCode);
       rule.classificationName ||= classification?.name || "";
+      rule.taxShortName ||= rule.classificationName;
       rule.taxType = taxTypeCode;
       rule.taxTypeName ||= taxType?.name || "";
       if (!taxType?.rates.includes(rule.taxRate)) rule.taxRate = taxType?.rates[0] || "";
-      rule.updatedAt ||= "2026-07-28 10:00";
-    });
-    brand.config.fallbacks.forEach((fallback) => {
+    } else {
+      rule.taxType = "VAT";
+      rule.taxTypeName = "增值税";
+    }
+    rule.updatedAt ||= "2026-07-28 10:00";
+  });
+  brand.config.fallbacks.forEach((fallback) => {
+    fallback.itemName ||= fallback.alias || "默认零售商品";
+    fallback.preferentialPolicy = fallback.preferentialPolicy === "否" ? "无" : fallback.preferentialPolicy || "无";
+    if (brand.country === "MY") {
       const classification = malaysiaClassificationCatalog.find((item) => item.code === fallback.classification);
       const taxTypeCode = fallback.taxType || (["6%", "8%"].includes(fallback.taxRate) ? "02" : "01");
       const taxType = malaysiaTaxTypeCatalog.find((item) => item.code === taxTypeCode);
-      fallback.itemName ||= fallback.alias || "默认零售商品";
       fallback.classificationName ||= classification?.name || "";
+      fallback.taxShortName ||= fallback.classificationName;
       fallback.taxType = taxTypeCode;
       fallback.taxTypeName ||= taxType?.name || "";
       if (!taxType?.rates.includes(fallback.taxRate)) fallback.taxRate = taxType?.rates[0] || "";
-      fallback.updatedAt ||= "2026-07-28 10:00";
-    });
-  }
+    } else {
+      fallback.taxType = "VAT";
+      fallback.taxTypeName = "增值税";
+    }
+    fallback.updatedAt ||= "2026-07-28 10:00";
+  });
   return brand.config;
 }
 
 function settingsNavButton(tab, label) {
   return `<button class="${state.settingsTab === tab ? "active" : ""}" type="button" data-action="settings-tab" data-tab="${tab}">${label}</button>`;
+}
+
+function taxTypeDisplayName(brand, item) {
+  if (brand.country === "CN") return "增值税";
+  return malaysiaTaxTypeCatalog.find((taxType) => taxType.code === item.taxType)?.description || "-";
+}
+
+function taxShortName(item) {
+  return item.taxShortName || item.classificationName || "-";
+}
+
+function preferentialPolicyDisplay(item) {
+  return item.preferentialPolicy === "否" ? "无" : item.preferentialPolicy || "无";
+}
+
+function renderUnifiedRuleSettingsContent(customer, brand) {
+  const config = ensureBrandInvoiceConfig(brand);
+  const categoryKeyword = state.settingsRuleCategoryKeyword.toLowerCase();
+  const taxCodeKeyword = state.settingsRuleTaxCodeKeyword.toLowerCase();
+  const rules = config.rules.filter(
+    (rule) =>
+      (!categoryKeyword || rule.category.toLowerCase().includes(categoryKeyword)) &&
+      (!taxCodeKeyword || rule.classification.toLowerCase().includes(taxCodeKeyword)),
+  );
+  return `
+    <section class="setting-block compact-setting-block">
+      <div>
+        <h2>发票明细项目名称</h2>
+        <p>设置零售订单开票时发票明细行项目名称的取值来源。</p>
+      </div>
+      ${
+        state.itemNameSourceEditing
+          ? `
+            <div class="inline-actions">
+              <select id="itemNameSourceSelect">
+                <option value="order-item" ${config.itemNameSource === "order-item" ? "selected" : ""}>取订单商品名称</option>
+                <option value="category-alias" ${config.itemNameSource === "category-alias" ? "selected" : ""}>取商品大类别名</option>
+              </select>
+              <button class="button" type="button" data-action="cancel-item-name-source">取消</button>
+              <button class="button primary" type="button" data-action="save-item-name-source">保存</button>
+            </div>
+          `
+          : `
+            <div class="inline-actions">
+              <strong>${config.itemNameSource === "category-alias" ? "取商品大类别名" : "取订单商品名称"}</strong>
+              <button class="button" type="button" data-action="edit-item-name-source">编辑</button>
+            </div>
+          `
+      }
+    </section>
+    <p class="section-description">按品牌维度维护订单商品行的商品大类对应的开票税收分类编码。</p>
+    <div class="filter-bar">
+      <label class="field"><span>商品大类</span><input id="settingsRuleCategoryInput" value="${escapeHtml(state.settingsRuleCategoryKeyword)}" placeholder="请输入商品大类" /></label>
+      <label class="field"><span>税收分类编码</span><input id="settingsRuleTaxCodeInput" value="${escapeHtml(state.settingsRuleTaxCodeKeyword)}" placeholder="请输入税收分类编码" /></label>
+      <div class="filter-actions">
+        <button class="button primary" type="button" data-action="search-settings-rules">查询</button>
+        <button class="button" type="button" data-action="reset-settings-rules">重置</button>
+      </div>
+    </div>
+    <div class="table-toolbar actions-only">
+      <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="rules">批量导入</button><button class="button primary" type="button" data-action="create-rule">新增规则</button></div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table wide">
+        <thead><tr><th>商品大类</th><th>大类别名</th><th>税收分类编码</th><th>税收分类简称</th><th>税种</th><th>税率</th><th>优惠政策</th><th>指定开票税号</th><th>更新时间</th><th>操作</th></tr></thead>
+        <tbody>
+          ${
+            rules.length
+              ? rules
+                  .map(
+                    (rule) => `
+                      <tr>
+                        <td>${escapeHtml(rule.category)}</td>
+                        <td>${escapeHtml(rule.alias)}</td>
+                        <td>${escapeHtml(rule.classification)}</td>
+                        <td>${escapeHtml(taxShortName(rule))}</td>
+                        <td>${escapeHtml(taxTypeDisplayName(brand, rule))}</td>
+                        <td>${escapeHtml(rule.taxRate)}</td>
+                        <td>${escapeHtml(preferentialPolicyDisplay(rule))}</td>
+                        <td>${escapeHtml(companyLicenseName(customer, rule.specifiedCompanyId))}</td>
+                        <td>${escapeHtml(rule.updatedAt || "-")}</td>
+                        <td><button class="button link" type="button" data-action="edit-rule" data-id="${rule.id}">编辑</button></td>
+                      </tr>
+                    `,
+                  )
+                  .join("")
+              : `<tr><td class="empty-cell" colspan="10">暂无规则</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderUnifiedFallbackSettingsContent(customer, brand) {
+  const config = ensureBrandInvoiceConfig(brand);
+  const taxNoKeyword = state.settingsFallbackTaxNoKeyword.toLowerCase();
+  const taxCodeKeyword = state.settingsFallbackTaxCodeKeyword.toLowerCase();
+  const fallbacks = config.fallbacks.filter((item) => {
+    const company = customer.companies.find((companyItem) => companyItem.id === item.companyId);
+    const taxNo = companyTaxNumber(company);
+    return (!taxNoKeyword || taxNo.toLowerCase().includes(taxNoKeyword)) && (!taxCodeKeyword || item.classification.toLowerCase().includes(taxCodeKeyword));
+  });
+  return `
+    <div class="section-heading">
+      <h2>税号兜底开票项目配置</h2>
+      <p>当订单商品行未命中商品大类规则时，系统根据订单对应门店使用的开票税号，匹配该税号配置的兜底开票项目、税收分类编码和税率。</p>
+    </div>
+    <div class="filter-bar">
+      <label class="field"><span>税号</span><input id="settingsFallbackTaxNoInput" value="${escapeHtml(state.settingsFallbackTaxNoKeyword)}" placeholder="请输入税号" /></label>
+      <label class="field"><span>税收分类编码</span><input id="settingsFallbackTaxCodeInput" value="${escapeHtml(state.settingsFallbackTaxCodeKeyword)}" placeholder="请输入税收分类编码" /></label>
+      <div class="filter-actions">
+        <button class="button primary" type="button" data-action="search-settings-fallbacks">查询</button>
+        <button class="button" type="button" data-action="reset-settings-fallbacks">清空</button>
+      </div>
+    </div>
+    <div class="table-toolbar actions-only">
+      <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增规则</button></div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table wide">
+        <thead><tr><th>税号</th><th>纳税人名称</th><th>大类别名</th><th>税收分类编码</th><th>税收分类简称</th><th>税种</th><th>税率</th><th>优惠政策</th><th>更新时间</th><th>操作</th></tr></thead>
+        <tbody>
+          ${
+            fallbacks.length
+              ? fallbacks
+                  .map((item) => {
+                    const company = customer.companies.find((companyItem) => companyItem.id === item.companyId);
+                    return `
+                      <tr>
+                        <td>${escapeHtml(companyTaxNumber(company) || "-")}</td>
+                        <td>${escapeHtml(company?.legalName || "-")}</td>
+                        <td>${escapeHtml(item.itemName || "-")}</td>
+                        <td>${escapeHtml(item.classification)}</td>
+                        <td>${escapeHtml(taxShortName(item))}</td>
+                        <td>${escapeHtml(taxTypeDisplayName(brand, item))}</td>
+                        <td>${escapeHtml(item.taxRate)}</td>
+                        <td>${escapeHtml(preferentialPolicyDisplay(item))}</td>
+                        <td>${escapeHtml(item.updatedAt || "-")}</td>
+                        <td>
+                          <button class="button link" type="button" data-action="edit-fallback" data-id="${item.id}">编辑</button>
+                          <button class="button link danger-text" type="button" data-action="delete-fallback" data-id="${item.id}">删除</button>
+                        </td>
+                      </tr>
+                    `;
+                  })
+                  .join("")
+              : `<tr><td class="empty-cell" colspan="10">暂无规则</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderPaymentSettingsContent(brand) {
+  const config = ensureBrandInvoiceConfig(brand);
+  return `
+    <div class="panel-head settings-section-head">
+      <div><h2>不可开票支付方式</h2><p>命中的支付方式金额不计入零售订单可开票金额。</p></div>
+      <button class="button primary" type="button" data-action="create-payment">新增支付方式</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>支付方式编号</th><th>支付方式名称</th><th>更新时间</th><th>操作</th></tr></thead>
+        <tbody>
+          ${
+            config.payments.length
+              ? config.payments
+                  .map(
+                    (item) => `
+                      <tr>
+                        <td>${escapeHtml(item.code)}</td>
+                        <td>${escapeHtml(item.name)}</td>
+                        <td>${escapeHtml(item.updatedAt || "-")}</td>
+                        <td><button class="button link" type="button" data-action="edit-payment" data-id="${item.id}">编辑</button></td>
+                      </tr>
+                    `,
+                  )
+                  .join("")
+              : `<tr><td class="empty-cell" colspan="4">暂无支付方式</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderMalaysiaSettingsContent(customer, brand) {
@@ -3820,35 +4073,7 @@ function renderChinaSettingsContent(customer, brand) {
     `;
   }
   if (state.settingsTab === "payments") {
-    return `
-      <div class="panel-head settings-section-head">
-        <div><h2>不可开票支付方式</h2><p>命中的支付方式金额不计入零售订单可开票金额。</p></div>
-        <button class="button primary" type="button" data-action="create-payment">新增支付方式</button>
-      </div>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr><th>支付方式编号</th><th>支付方式名称</th><th>更新时间</th><th>操作</th></tr></thead>
-          <tbody>
-            ${
-              config.payments.length
-                ? config.payments
-                    .map(
-                      (item) => `
-                        <tr>
-                          <td>${escapeHtml(item.code)}</td>
-                          <td>${escapeHtml(item.name)}</td>
-                          <td>${escapeHtml(item.updatedAt || "-")}</td>
-                          <td><button class="button link" type="button" data-action="edit-payment" data-id="${item.id}">编辑</button></td>
-                        </tr>
-                      `,
-                    )
-                    .join("")
-                : `<tr><td class="empty-cell" colspan="4">暂无支付方式</td></tr>`
-            }
-          </tbody>
-        </table>
-      </div>
-    `;
+    return renderPaymentSettingsContent(brand);
   }
   return renderApplicationSettings(brand, config.application);
 }
@@ -4265,7 +4490,7 @@ function blankCompany(country) {
     businessDesc: "",
     remark: "",
     createdAt: "",
-    licenses: country === "MY" ? { BRN: "", TIN: "", SST: "" } : { USCC: "" },
+    licenses: country === "MY" ? { BRN: "", TIN: "", SST: "" } : country === "CN" ? { USCC: "" } : {},
     invoiceStatus: "unopened",
     taxpayerExists: false,
     openAttempted: false,
@@ -4277,11 +4502,25 @@ function openCompanyEditor(companyId = "") {
   const customer = currentCustomer();
   const company = customer.companies.find((item) => item.id === companyId);
   state.modalContext = "company-editor";
-  state.companyDraft = company ? structuredClone(company) : blankCompany(state.companyCountryTab);
+  state.companyDraft = company ? structuredClone(company) : blankCompany("");
   state.companyDraft.type ||= "Head";
   state.companyDraft.parentCompanyId ||= "";
   state.companyErrors = {};
   renderCompanyEditor();
+}
+
+function hasCompanyDraftContent(draft) {
+  return Boolean(
+    draft.legalName ||
+      draft.address ||
+      draft.email ||
+      draft.phone ||
+      draft.industryLevelTwoCode ||
+      draft.businessDesc ||
+      draft.remark ||
+      draft.parentCompanyId ||
+      Object.values(draft.licenses || {}).some(Boolean),
+  );
 }
 
 function readCompanyDraftFromForm() {
@@ -4377,13 +4616,26 @@ function renderCompanyEditor() {
     <label class="field"><span>税务识别号码（TIN）</span><input id="companyTIN" class="${errors.TIN ? "field-error" : ""}" value="${escapeHtml(draft.licenses.TIN || "")}" placeholder="请输入税务识别号码（TIN）" /><span class="field-message">${escapeHtml(errors.TIN || "")}</span></label>
     <label class="field"><span>销售与服务税注册号码（SST）</span><input id="companySST" class="${errors.SST ? "field-error" : ""}" value="${escapeHtml(draft.licenses.SST || "")}" placeholder="请输入销售与服务税注册号码（SST）" /><span class="field-message">${escapeHtml(errors.SST || "")}</span></label>
   `;
+  const localizedFields = draft.country ? (draft.country === "MY" ? malaysiaFields : chinaFields) : "";
+  const countryField = isEdit
+    ? `<div class="company-country-context"><span>国家/地区</span><strong>${countries[draft.country]}</strong></div>`
+    : `
+      <label class="field required company-country-field"><span>国家/地区</span>
+        <select id="companyCountry" class="${errors.country ? "field-error" : ""}">
+          <option value="">请选择国家/地区</option>
+          <option value="CN" ${draft.country === "CN" ? "selected" : ""}>中国</option>
+          <option value="MY" ${draft.country === "MY" ? "selected" : ""}>马来西亚</option>
+        </select>
+        <span class="field-message">${escapeHtml(errors.country || "")}</span>
+      </label>
+    `;
   openModal({
     title: isEdit ? "编辑公司主档" : "创建公司",
     drawer: true,
     body: `
-      <div class="company-country-context"><span>国家/地区</span><strong>${countries[draft.country]}</strong></div>
+      ${countryField}
       <div class="form-grid">
-        ${draft.country === "MY" ? malaysiaFields : chinaFields}
+        ${localizedFields}
       </div>
     `,
     actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="save-company">保存</button>`,
@@ -4404,6 +4656,11 @@ function saveCompany() {
   const customer = currentCustomer();
   const existing = customer.companies.find((company) => company.id === draft.id);
   const childCompanies = customer.companies.filter((company) => company.parentCompanyId === draft.id);
+  if (!draft.country) {
+    state.companyErrors = { country: "请选择国家/地区" };
+    renderCompanyEditor();
+    return;
+  }
   if (!draft.legalName) errors.legalName = "请填写公司名称";
   if (draft.type === "Branch") {
     const parent = customer.companies.find((company) => company.id === draft.parentCompanyId);
@@ -4719,44 +4976,140 @@ function saveBrand() {
       },
     },
   };
+  ensureBrandLogoSets(brand);
   currentCustomer().brands.unshift(brand);
   closeModal();
   render();
   showToast("品牌创建成功");
 }
 
-function openBrandLogoEditor() {
+function openBrandLogoSchemeEditor(schemeId = "") {
   const brand = currentBrand();
   if (!brand) return;
-  state.modalContext = { type: "brand-logo-editor", id: brand.id };
+  const logoSets = ensureBrandLogoSets(brand);
+  const existing = logoSets.find((scheme) => scheme.id === schemeId);
+  if (!existing && logoSets.length >= BRAND_LOGO_SET_LIMIT) {
+    showToast(`每个品牌最多设置 ${BRAND_LOGO_SET_LIMIT} 组 Logo 方案`);
+    return;
+  }
+  state.brandLogoSchemeDraft = existing
+    ? structuredClone(existing)
+    : {
+        id: "",
+        name: "",
+        standardLogo: "",
+        horizontalLogo: "",
+        isDefault: false,
+        createdAt: "",
+      };
+  state.brandLogoSchemeFileError = "";
+  state.modalContext = { type: "brand-logo-scheme-editor", id: schemeId };
   openModal({
-    title: "编辑默认 Logo",
+    title: existing ? "编辑 Logo 方案" : "添加 Logo 方案",
     drawer: true,
     body: `
       <div class="form-grid">
-        ${brandUploadField({ id: "brandStandardLogo", label: "品牌标准logo", value: brand.standardLogo, horizontal: false })}
-        ${brandUploadField({ id: "brandHorizontalLogo", label: "品牌横版logo", value: brand.horizontalLogo, horizontal: true })}
+        <label class="field required"><span>方案名称</span><input id="brandLogoSchemeName" value="${escapeHtml(state.brandLogoSchemeDraft.name)}" placeholder="请输入方案名称" /></label>
+        ${brandUploadField({ id: "brandLogoSchemeStandard", label: "品牌标准 Logo", value: state.brandLogoSchemeDraft.standardLogo, horizontal: false })}
+        ${brandUploadField({ id: "brandLogoSchemeHorizontal", label: "品牌横版 Logo", value: state.brandLogoSchemeDraft.horizontalLogo, horizontal: true })}
         <div class="field-message full" id="brandLogoError"></div>
       </div>
     `,
-    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="save-brand-logo">保存</button>`,
+    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="save-brand-logo-scheme">保存</button>`,
   });
 }
 
-function saveBrandLogo() {
-  const brand = currentBrand();
-  if (!brand) return;
-  const standardLogo = document.getElementById("brandStandardLogo")?.files?.[0]?.name || brand.standardLogo;
-  const horizontalLogo = document.getElementById("brandHorizontalLogo")?.files?.[0]?.name || brand.horizontalLogo;
-  if (!standardLogo || !horizontalLogo) {
-    document.getElementById("brandLogoError").textContent = "请上传品牌标准 Logo 和品牌横版 Logo";
+function brandLogoFileError(file) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const validType = ["png", "jpg", "jpeg"].includes(extension) && ["image/png", "image/jpeg"].includes(file.type);
+  if (!validType) return "Logo 仅支持 png、jpg 格式";
+  if (file.size > 4 * 1024 * 1024) return "Logo 文件不能大于 4M";
+  return "";
+}
+
+function handleBrandLogoSchemeFile(input) {
+  const file = input.files?.[0];
+  if (!file || !state.brandLogoSchemeDraft) return;
+  const error = brandLogoFileError(file);
+  const errorNode = document.getElementById("brandLogoError");
+  if (error) {
+    state.brandLogoSchemeFileError = error;
+    input.value = "";
+    if (errorNode) errorNode.textContent = error;
     return;
   }
-  brand.standardLogo = standardLogo;
-  brand.horizontalLogo = horizontalLogo;
+  const key = input.id === "brandLogoSchemeStandard" ? "standardLogo" : "horizontalLogo";
+  state.brandLogoSchemeDraft[key] = file.name;
+  state.brandLogoSchemeFileError = "";
+  const name = document.getElementById(`${input.id}Name`);
+  if (name) name.textContent = file.name;
+  if (errorNode) errorNode.textContent = "";
+}
+
+function saveBrandLogoScheme() {
+  const brand = currentBrand();
+  if (!brand) return;
+  const logoSets = ensureBrandLogoSets(brand);
+  const existing = logoSets.find((scheme) => scheme.id === state.modalContext?.id);
+  const name = document.getElementById("brandLogoSchemeName")?.value.trim() || "";
+  const draft = state.brandLogoSchemeDraft || {};
+  const duplicate = logoSets.some((scheme) => scheme.id !== existing?.id && scheme.name.trim().toLowerCase() === name.toLowerCase());
+  const errorNode = document.getElementById("brandLogoError");
+  if (state.brandLogoSchemeFileError) {
+    errorNode.textContent = state.brandLogoSchemeFileError;
+    return;
+  }
+  if (!name || !draft.standardLogo || !draft.horizontalLogo) {
+    errorNode.textContent = "请填写方案名称，并上传品牌标准 Logo 和品牌横版 Logo";
+    return;
+  }
+  if (duplicate) {
+    errorNode.textContent = "方案名称不能重复";
+    return;
+  }
+  if (!existing && logoSets.length >= BRAND_LOGO_SET_LIMIT) {
+    errorNode.textContent = `每个品牌最多设置 ${BRAND_LOGO_SET_LIMIT} 组 Logo 方案`;
+    return;
+  }
+  if (existing) {
+    Object.assign(existing, {
+      name,
+      standardLogo: draft.standardLogo,
+      horizontalLogo: draft.horizontalLogo,
+    });
+    if (existing.isDefault) {
+      brand.standardLogo = existing.standardLogo;
+      brand.horizontalLogo = existing.horizontalLogo;
+    }
+  } else {
+    logoSets.push({
+      id: uid(`${brand.id}-LOGO`),
+      name,
+      standardLogo: draft.standardLogo,
+      horizontalLogo: draft.horizontalLogo,
+      isDefault: false,
+      createdAt: nowText(),
+    });
+  }
   closeModal();
   render();
-  showToast("默认 Logo 已更新");
+  showToast(existing ? "Logo 方案已更新" : "Logo 方案已添加");
+}
+
+function deleteBrandLogoScheme(schemeId) {
+  const brand = currentBrand();
+  if (!brand) return;
+  const logoSets = ensureBrandLogoSets(brand);
+  const scheme = logoSets.find((item) => item.id === schemeId);
+  if (!scheme) return;
+  if (scheme.isDefault) {
+    showToast("默认 Logo 方案不可删除");
+    return;
+  }
+  if (!window.confirm(`确定删除 Logo 方案“${scheme.name}”吗？`)) return;
+  brand.logoSets = logoSets.filter((item) => item.id !== schemeId);
+  render();
+  showToast("Logo 方案已删除");
 }
 
 function openStoreEditor(storeId = "") {
@@ -5119,15 +5472,55 @@ function malaysiaTaxRateOptions(taxTypeCode = "01", selectedValue = "") {
   return ruleSelectOptions(taxType.rates, selected);
 }
 
+function defaultTaxTypeCode(brand = currentBrand()) {
+  return brand?.country === "MY" ? "01" : "VAT";
+}
+
+function taxTypeOptionsForBrand(brand = currentBrand(), selectedValue = "") {
+  if (brand?.country !== "MY") {
+    return `<option value="VAT" selected>增值税</option>`;
+  }
+  const selected = selectedValue || defaultTaxTypeCode(brand);
+  return malaysiaTaxTypeCatalog
+    .map(
+      (item) =>
+        `<option value="${item.code}" ${item.code === selected ? "selected" : ""}>${escapeHtml(item.description)}</option>`,
+    )
+    .join("");
+}
+
+function taxRateOptionsForBrand(brand = currentBrand(), taxTypeCode = "", selectedValue = "") {
+  if (brand?.country !== "MY") {
+    return ruleSelectOptions(chinaTaxRateOptions, selectedValue || "13%");
+  }
+  return malaysiaTaxRateOptions(taxTypeCode || defaultTaxTypeCode(brand), selectedValue);
+}
+
+function preferentialPolicyOptionsForBrand(brand = currentBrand(), selectedValue = "无") {
+  const normalized = selectedValue === "否" ? "无" : selectedValue || "无";
+  return ruleSelectOptions(brand?.country === "MY" ? ["无"] : chinaPreferentialPolicyOptions, normalized);
+}
+
+function taxTypeNameForBrand(brand, taxTypeCode) {
+  if (brand?.country !== "MY") return "增值税";
+  return malaysiaTaxTypeCatalog.find((item) => item.code === taxTypeCode)?.name || "";
+}
+
+function isValidTaxTypeRate(brand, taxTypeCode, taxRate) {
+  if (brand?.country !== "MY") {
+    return taxTypeCode === "VAT" && chinaTaxRateOptions.includes(taxRate);
+  }
+  const taxType = malaysiaTaxTypeCatalog.find((item) => item.code === taxTypeCode);
+  return Boolean(taxType?.rates.includes(taxRate));
+}
+
 function syncMalaysiaTaxTypeFields(prefix) {
+  const brand = currentBrand();
   const taxTypeSelect = document.getElementById(`${prefix}TaxType`);
-  const taxTypeNameInput = document.getElementById(`${prefix}TaxTypeName`);
   const taxRateSelect = document.getElementById(`${prefix}TaxRate`);
-  if (!taxTypeSelect || !taxTypeNameInput || !taxRateSelect) return;
-  const taxType = malaysiaTaxTypeCatalog.find((item) => item.code === taxTypeSelect.value) || malaysiaTaxTypeCatalog[0];
+  if (!taxTypeSelect || !taxRateSelect) return;
   const previousRate = taxRateSelect.value;
-  taxTypeNameInput.value = taxType.name;
-  taxRateSelect.innerHTML = malaysiaTaxRateOptions(taxType.code, previousRate);
+  taxRateSelect.innerHTML = taxRateOptionsForBrand(brand, taxTypeSelect.value, previousRate);
 }
 
 function openMalaysiaRuleEditor(ruleId = "") {
@@ -5214,10 +5607,6 @@ function saveMalaysiaRule() {
 }
 
 function openRuleEditor(ruleId = "") {
-  if (currentBrand()?.country === "MY") {
-    openMalaysiaRuleEditor(ruleId);
-    return;
-  }
   const brand = currentBrand();
   const config = ensureBrandInvoiceConfig(brand);
   const rule = config.rules.find((item) => item.id === ruleId) || {
@@ -5226,12 +5615,14 @@ function openRuleEditor(ruleId = "") {
     alias: "",
     classification: "",
     taxShortName: "",
-    taxRate: "13%",
+    taxType: defaultTaxTypeCode(brand),
+    taxRate: brand?.country === "MY" ? "10%" : "13%",
     preferentialPolicy: "无",
     specifiedCompanyId: "",
   };
   const preferentialPolicy = rule.preferentialPolicy === "否" ? "无" : rule.preferentialPolicy || "无";
-  const companies = currentCustomer().companies.filter((company) => company.country === brand.country);
+  const companies = eligibleFallbackTaxpayers();
+  const taxTypeCode = rule.taxType || defaultTaxTypeCode(brand);
   state.modalContext = { type: "rule-editor", id: ruleId };
   openModal({
     title: ruleId ? "编辑商品开票规则" : "新增商品开票规则",
@@ -5246,13 +5637,14 @@ function openRuleEditor(ruleId = "") {
           <input id="ruleClassification" value="${escapeHtml(rule.classification)}" placeholder="请输入税收分类编码" autocomplete="off" aria-controls="ruleTaxCodeSuggestions" aria-autocomplete="list" />
           <div class="tax-code-suggestions hidden" id="ruleTaxCodeSuggestions" role="listbox"></div>
         </label>
-        <label class="field required"><span>税收分类简称</span><input id="ruleTaxShortName" value="${escapeHtml(rule.taxShortName || "")}" placeholder="按税收分类编码带出" readonly /></label>
-        <label class="field required"><span>税率</span><select id="ruleTaxRate">${ruleSelectOptions(chinaTaxRateOptions, rule.taxRate || "13%")}</select></label>
-        <label class="field required"><span>优惠政策</span><select id="rulePreferentialPolicy">${ruleSelectOptions(chinaPreferentialPolicyOptions, preferentialPolicy)}</select></label>
+        <label class="field required"><span>税收分类简称</span><input id="ruleTaxShortName" value="${escapeHtml(rule.taxShortName || rule.classificationName || "")}" placeholder="按税收分类编码带出" readonly /></label>
+        <label class="field required"><span>税种</span><select id="ruleTaxType">${taxTypeOptionsForBrand(brand, taxTypeCode)}</select></label>
+        <label class="field required"><span>税率</span><select id="ruleTaxRate">${taxRateOptionsForBrand(brand, taxTypeCode, rule.taxRate)}</select></label>
+        <label class="field required"><span>优惠政策</span><select id="rulePreferentialPolicy">${preferentialPolicyOptionsForBrand(brand, preferentialPolicy)}</select></label>
         <label class="field"><span>指定开票税号</span>
           <select id="ruleSpecifiedCompany">
             <option value="">不指定（使用订单门店关联税号）</option>
-            ${companies.map((company) => `<option value="${company.id}" ${company.id === rule.specifiedCompanyId ? "selected" : ""}>${escapeHtml(company.legalName)} / ${escapeHtml(company.licenses.USCC || company.licenses.TIN || "-")}</option>`).join("")}
+            ${companies.map((company) => `<option value="${company.id}" ${company.id === rule.specifiedCompanyId ? "selected" : ""}>${escapeHtml(company.legalName)} / ${escapeHtml(companyTaxNumber(company) || "-")}</option>`).join("")}
           </select>
           <small>可选。指定后，命中该规则的商品行使用此税号开票。</small>
         </label>
@@ -5265,33 +5657,56 @@ function openRuleEditor(ruleId = "") {
 }
 
 function saveRule() {
-  if (state.modalContext?.type === "malaysia-rule-editor") {
-    saveMalaysiaRule();
-    return;
-  }
+  const brand = currentBrand();
   const classification = document.getElementById("ruleClassification").value.trim();
-  const matchedTaxClassification = chinaTaxClassificationCatalog.find((item) => item.code === classification);
+  const matchedTaxClassification = activeClassificationCatalog().find((item) => item.code === classification);
+  const taxType = document.getElementById("ruleTaxType").value;
   const values = {
     category: document.getElementById("ruleCategory").value.trim(),
     alias: document.getElementById("ruleAlias").value.trim(),
     classification,
-    taxShortName: matchedTaxClassification?.shortName || "",
+    taxShortName: classificationDisplayName(matchedTaxClassification),
+    classificationName: classificationDisplayName(matchedTaxClassification),
+    taxType,
+    taxTypeName: taxTypeNameForBrand(brand, taxType),
     taxRate: document.getElementById("ruleTaxRate").value,
     preferentialPolicy: document.getElementById("rulePreferentialPolicy").value,
     specifiedCompanyId: document.getElementById("ruleSpecifiedCompany").value,
     updatedAt: nowText(),
   };
-  if (!values.category || !values.alias || !values.classification || !values.taxRate) {
-    document.getElementById("ruleError").textContent = "请完整填写商品大类、大类别名和税收分类编码";
+  const error = document.getElementById("ruleError");
+  if (!values.category || !values.alias || !values.classification || !values.taxType || !values.taxRate) {
+    error.textContent = "请完整填写商品大类、大类别名、税收分类编码、税种和税率";
     return;
   }
   if (!matchedTaxClassification) {
-    document.getElementById("ruleError").textContent = "请选择有效的税收分类编码";
+    error.textContent = "请选择有效的税收分类编码";
     return;
   }
-  const brand = currentBrand();
+  if (!isValidTaxTypeRate(brand, values.taxType, values.taxRate)) {
+    error.textContent = "请选择当前税种对应的税率";
+    return;
+  }
+  if (brand?.country === "MY" && values.preferentialPolicy !== "无") {
+    error.textContent = "马来西亚品牌本期优惠政策仅支持“无”";
+    return;
+  }
+  const selectedCompany = values.specifiedCompanyId
+    ? eligibleFallbackTaxpayers().find((company) => company.id === values.specifiedCompanyId)
+    : null;
+  if (values.specifiedCompanyId && !selectedCompany) {
+    error.textContent = "只能选择当前品牌国家下已开通电子发票的纳税人主体";
+    return;
+  }
   const id = state.modalContext.id;
-  const existing = brand.config.rules.find((rule) => rule.id === id);
+  const duplicated = brand.config.rules.find(
+    (item) => item.category.toLowerCase() === values.category.toLowerCase() && item.id !== id,
+  );
+  if (duplicated) {
+    error.textContent = "当前品牌已存在相同商品大类的规则";
+    return;
+  }
+  const existing = brand.config.rules.find((item) => item.id === id);
   if (existing) Object.assign(existing, values);
   else brand.config.rules.unshift({ id: uid("RULE"), ...values });
   closeModal();
@@ -5400,10 +5815,6 @@ function saveMalaysiaFallback() {
 }
 
 function openFallbackEditor(fallbackId = "") {
-  if (currentBrand()?.country === "MY") {
-    openMalaysiaFallbackEditor(fallbackId);
-    return;
-  }
   const brand = currentBrand();
   const config = ensureBrandInvoiceConfig(brand);
   const taxpayers = eligibleFallbackTaxpayers();
@@ -5413,11 +5824,13 @@ function openFallbackEditor(fallbackId = "") {
     itemName: "",
     classification: "",
     taxShortName: "",
-    taxRate: "13%",
+    taxType: defaultTaxTypeCode(brand),
+    taxRate: brand?.country === "MY" ? "10%" : "13%",
     preferentialPolicy: "无",
   };
   const selectedCompany = taxpayers.find((company) => company.id === fallback.companyId);
   const preferentialPolicy = fallback.preferentialPolicy === "否" ? "无" : fallback.preferentialPolicy || "无";
+  const taxTypeCode = fallback.taxType || defaultTaxTypeCode(brand);
   state.modalContext = { type: "fallback-editor", id: fallbackId };
   openModal({
     title: fallbackId ? "编辑税号兜底开票项目" : "新增税号兜底开票项目",
@@ -5438,9 +5851,10 @@ function openFallbackEditor(fallbackId = "") {
           <input id="fallbackClassification" value="${escapeHtml(fallback.classification)}" placeholder="请输入税收分类编码" autocomplete="off" aria-controls="fallbackTaxCodeSuggestions" aria-autocomplete="list" />
           <div class="tax-code-suggestions hidden" id="fallbackTaxCodeSuggestions" role="listbox"></div>
         </label>
-        <label class="field required"><span>税收分类简称</span><input id="fallbackTaxShortName" value="${escapeHtml(fallback.taxShortName || "")}" placeholder="按税收分类编码带出" readonly /></label>
-        <label class="field required"><span>税率</span><select id="fallbackTaxRate">${ruleSelectOptions(chinaTaxRateOptions, fallback.taxRate || "13%")}</select></label>
-        <label class="field required"><span>优惠政策</span><select id="fallbackPreferentialPolicy">${ruleSelectOptions(chinaPreferentialPolicyOptions, preferentialPolicy)}</select></label>
+        <label class="field required"><span>税收分类简称</span><input id="fallbackTaxShortName" value="${escapeHtml(fallback.taxShortName || fallback.classificationName || "")}" placeholder="按税收分类编码带出" readonly /></label>
+        <label class="field required"><span>税种</span><select id="fallbackTaxType">${taxTypeOptionsForBrand(brand, taxTypeCode)}</select></label>
+        <label class="field required"><span>税率</span><select id="fallbackTaxRate">${taxRateOptionsForBrand(brand, taxTypeCode, fallback.taxRate)}</select></label>
+        <label class="field required"><span>优惠政策</span><select id="fallbackPreferentialPolicy">${preferentialPolicyOptionsForBrand(brand, preferentialPolicy)}</select></label>
         <div class="field-message full" id="fallbackError"></div>
       </div>
     `,
@@ -5451,41 +5865,61 @@ function openFallbackEditor(fallbackId = "") {
 }
 
 function saveFallback() {
-  if (state.modalContext?.type === "malaysia-fallback-editor") {
-    saveMalaysiaFallback();
-    return;
-  }
+  const brand = currentBrand();
   const classification = document.getElementById("fallbackClassification").value.trim();
-  const matchedTaxClassification = chinaTaxClassificationCatalog.find((item) => item.code === classification);
+  const matchedTaxClassification = activeClassificationCatalog().find((item) => item.code === classification);
+  const taxType = document.getElementById("fallbackTaxType").value;
   const values = {
     companyId: document.getElementById("fallbackCompany").value,
     itemName: document.getElementById("fallbackItemName").value.trim(),
     classification,
-    taxShortName: matchedTaxClassification?.shortName || "",
+    taxShortName: classificationDisplayName(matchedTaxClassification),
+    classificationName: classificationDisplayName(matchedTaxClassification),
+    taxType,
+    taxTypeName: taxTypeNameForBrand(brand, taxType),
     taxRate: document.getElementById("fallbackTaxRate").value,
     preferentialPolicy: document.getElementById("fallbackPreferentialPolicy").value,
     updatedAt: nowText(),
   };
+  const error = document.getElementById("fallbackError");
   if (!values.companyId) {
-    document.getElementById("fallbackError").textContent = "请选择有效的开票税号";
+    error.textContent = "请选择有效的开票税号";
     return;
   }
-  if (!values.itemName || !values.classification) {
-    document.getElementById("fallbackError").textContent = "请完整填写大类别名和税收分类编码";
+  if (!values.itemName || !values.classification || !values.taxType || !values.taxRate) {
+    error.textContent = "请完整填写大类别名、税收分类编码、税种和税率";
     return;
   }
   if (!matchedTaxClassification) {
-    document.getElementById("fallbackError").textContent = "请选择有效的税收分类编码";
+    error.textContent = "请选择有效的税收分类编码";
+    return;
+  }
+  if (!isValidTaxTypeRate(brand, values.taxType, values.taxRate)) {
+    error.textContent = "请选择当前税种对应的税率";
+    return;
+  }
+  if (brand?.country === "MY" && values.preferentialPolicy !== "无") {
+    error.textContent = "马来西亚品牌本期优惠政策仅支持“无”";
     return;
   }
   const customer = currentCustomer();
   const company = customer.companies.find((item) => item.id === values.companyId);
-  if (!company || company.country !== currentBrand().country || company.invoiceStatus !== "opened" || !company.taxpayerExists) {
-    document.getElementById("fallbackError").textContent = "只能选择当前品牌国家下已开通电子发票的纳税人主体";
+  if (
+    !company ||
+    company.country !== brand.country ||
+    company.invoiceStatus !== "opened" ||
+    !company.taxpayerExists ||
+    !companyTaxNumber(company)
+  ) {
+    error.textContent = "只能选择当前品牌国家下已开通电子发票的纳税人主体";
     return;
   }
-  const brand = currentBrand();
   const id = state.modalContext.id;
+  const duplicated = brand.config.fallbacks.find((item) => item.companyId === values.companyId && item.id !== id);
+  if (duplicated) {
+    error.textContent = "当前品牌已为该税号配置兜底开票项目";
+    return;
+  }
   const existing = brand.config.fallbacks.find((item) => item.id === id);
   if (existing) Object.assign(existing, values);
   else brand.config.fallbacks.unshift({ id: uid("FB"), ...values });
@@ -5498,11 +5932,10 @@ function deleteFallback(fallbackId) {
   const config = ensureBrandInvoiceConfig(currentBrand());
   const fallback = config.fallbacks.find((item) => item.id === fallbackId);
   if (!fallback) return;
-  const malaysia = currentBrand()?.country === "MY";
   state.modalContext = { type: "fallback-delete", id: fallbackId };
   openModal({
-    title: malaysia ? "删除税号兜底开票规则" : "删除税号兜底开票项目",
-    body: `<div class="notice warning"><span>确认删除“${malaysia ? "兜底开票项目名称" : "大类别名"}：${escapeHtml(fallback.itemName)}”的兜底配置？删除后可重新新增。</span></div>`,
+    title: "删除税号兜底开票项目",
+    body: `<div class="notice warning"><span>确认删除“大类别名：${escapeHtml(fallback.itemName)}”的兜底配置？删除后可重新新增。</span></div>`,
     actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button danger" type="button" data-action="confirm-delete-fallback">删除</button>`,
   });
 }
@@ -5891,30 +6324,18 @@ app.addEventListener("click", (event) => {
     render();
   }
   if (action === "edit-customer") openCustomerEditor(currentCustomer().customerType, currentCustomer().id);
-  if (action === "company-country") {
-    state.companyCountryTab = target.dataset.country;
-    state.companyNameKeyword = "";
-    state.companyRegistrationKeyword = "";
-    state.companyTinKeyword = "";
-    state.companySstKeyword = "";
-    state.companyTypeKeyword = "";
-    state.companyInvoiceStatusKeyword = "";
-    render();
-  }
   if (action === "search-companies") {
     state.companyNameKeyword = document.getElementById("companyNameInput").value.trim();
+    state.companyCountryKeyword = document.getElementById("companyCountryFilterInput").value;
     state.companyRegistrationKeyword = document.getElementById("companyRegistrationInput").value.trim();
-    state.companyTinKeyword = document.getElementById("companyTINFilterInput")?.value.trim() || "";
-    state.companySstKeyword = document.getElementById("companySSTFilterInput")?.value.trim() || "";
     state.companyTypeKeyword = document.getElementById("companyTypeInput").value;
     state.companyInvoiceStatusKeyword = document.getElementById("companyInvoiceStatusInput").value;
     render();
   }
   if (action === "reset-companies") {
     state.companyNameKeyword = "";
+    state.companyCountryKeyword = "";
     state.companyRegistrationKeyword = "";
-    state.companyTinKeyword = "";
-    state.companySstKeyword = "";
     state.companyTypeKeyword = "";
     state.companyInvoiceStatusKeyword = "";
     render();
@@ -6038,7 +6459,9 @@ app.addEventListener("click", (event) => {
     render();
   }
   if (action === "edit-brand") openBrandEditor(target.dataset.id);
-  if (action === "edit-brand-logo") openBrandLogoEditor();
+  if (action === "add-brand-logo-scheme") openBrandLogoSchemeEditor();
+  if (action === "edit-brand-logo-scheme") openBrandLogoSchemeEditor(target.dataset.id);
+  if (action === "delete-brand-logo-scheme") deleteBrandLogoScheme(target.dataset.id);
   if (action === "search-brand-stores") {
     state.brandStoreIdKeyword = document.getElementById("brandStoreIdInput").value.trim();
     state.brandStoreNameKeyword = document.getElementById("brandStoreNameInput").value.trim();
@@ -6311,7 +6734,7 @@ modalRoot.addEventListener("click", (event) => {
   if (action === "confirm-remove-company-store") confirmRemoveCompanyStore();
   if (action === "confirm-company-open") confirmCompanyOpen();
   if (action === "save-brand") saveBrand();
-  if (action === "save-brand-logo") saveBrandLogo();
+  if (action === "save-brand-logo-scheme") saveBrandLogoScheme();
   if (action === "save-store") saveStore();
   if (action === "edit-store-from-detail") {
     const storeId = target.dataset.id;
@@ -6387,6 +6810,9 @@ modalRoot.addEventListener("change", (event) => {
     const name = document.getElementById(`${event.target.id}Name`);
     if (name) name.textContent = file.name;
   }
+  if (event.target.id === "brandLogoSchemeStandard" || event.target.id === "brandLogoSchemeHorizontal") {
+    handleBrandLogoSchemeFile(event.target);
+  }
   if (event.target.id === "brandStoreImportFile") {
     const file = event.target.files?.[0];
     const name = document.getElementById("brandStoreImportFileName");
@@ -6399,6 +6825,20 @@ modalRoot.addEventListener("change", (event) => {
   }
   if (event.target.id === "fallbackTaxType") {
     syncMalaysiaTaxTypeFields("fallback");
+  }
+  if (event.target.id === "companyCountry") {
+    const previousCountry = state.companyDraft.country;
+    readCompanyDraftFromForm();
+    const nextCountry = event.target.value;
+    const shouldConfirm = previousCountry && previousCountry !== nextCountry && hasCompanyDraftContent(state.companyDraft);
+    if (shouldConfirm && !window.confirm("切换国家/地区后，已填写的公司信息将被清空，是否继续？")) {
+      renderCompanyEditor();
+      return;
+    }
+    state.companyDraft = blankCompany(nextCountry);
+    state.companyErrors = {};
+    renderCompanyEditor();
+    return;
   }
   if (event.target.id === "companyType") {
     readCompanyDraftFromForm();
