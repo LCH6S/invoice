@@ -1225,10 +1225,10 @@ const state = {
   companyRegistrationKeyword: "",
   companyTypeKeyword: "",
   companyInvoiceStatusKeyword: "",
+  companyBranchCountryKeyword: "",
   companyBranchNameKeyword: "",
   companyBranchRegistrationKeyword: "",
-  companyBranchTinKeyword: "",
-  companyBranchSstKeyword: "",
+  companyBranchTypeKeyword: "",
   companyBranchInvoiceStatusKeyword: "",
   brandNameKeyword: "",
   brandIdKeyword: "",
@@ -2210,53 +2210,72 @@ function companyPrimaryRegistration(company) {
     : { label: "统一社会信用代码", value: company.licenses.USCC || "" };
 }
 
-function renderCompanyList(customer) {
-  const nameKeyword = state.companyNameKeyword.toLowerCase();
-  const registrationKeyword = state.companyRegistrationKeyword.toLowerCase();
-  const companies = customer.companies.filter((company) => {
-    const matchesCountry = !state.companyCountryKeyword || company.country === state.companyCountryKeyword;
-    const matchesName = !nameKeyword || company.legalName.toLowerCase().includes(nameKeyword);
+function renderCompanyCollection(customer, options) {
+  const {
+    sourceCompanies,
+    countryKeyword,
+    nameKeyword,
+    registrationKeyword,
+    typeKeyword,
+    invoiceStatusKeyword,
+    inputPrefix,
+    searchAction,
+    resetAction,
+    showCreateAction = false,
+    showInvoiceOpenAction = true,
+  } = options;
+  const normalizedNameKeyword = nameKeyword.toLowerCase();
+  const normalizedRegistrationKeyword = registrationKeyword.toLowerCase();
+  const companies = sourceCompanies.filter((company) => {
+    const matchesCountry = !countryKeyword || company.country === countryKeyword;
+    const matchesName = !normalizedNameKeyword || company.legalName.toLowerCase().includes(normalizedNameKeyword);
     const primaryRegistration = companyPrimaryRegistration(company).value;
-    const matchesRegistration = !registrationKeyword || primaryRegistration.toLowerCase().includes(registrationKeyword);
-    const matchesType = !state.companyTypeKeyword || (company.type || "Head") === state.companyTypeKeyword;
-    const matchesInvoiceStatus = !state.companyInvoiceStatusKeyword || company.invoiceStatus === state.companyInvoiceStatusKeyword;
+    const matchesRegistration =
+      !normalizedRegistrationKeyword || primaryRegistration.toLowerCase().includes(normalizedRegistrationKeyword);
+    const matchesType = !typeKeyword || (company.type || "Head") === typeKeyword;
+    const matchesInvoiceStatus = !invoiceStatusKeyword || company.invoiceStatus === invoiceStatusKeyword;
     return matchesCountry && matchesName && matchesRegistration && matchesType && matchesInvoiceStatus;
   });
+  const inputId = (name) => `${inputPrefix}${name}`;
   return `
     <div class="tab-panel">
       <div class="toolbar">
         <div class="filter-fields company-filter-fields">
-          <label class="field"><span>公司名称</span><input id="companyNameInput" value="${escapeHtml(state.companyNameKeyword)}" placeholder="请输入公司名称" /></label>
+          <label class="field"><span>公司名称</span><input id="${inputId("NameInput")}" value="${escapeHtml(nameKeyword)}" placeholder="请输入公司名称" /></label>
           <label class="field"><span>国家/地区</span>
-            <select id="companyCountryFilterInput">
+            <select id="${inputId("CountryFilterInput")}">
               <option value="">全部</option>
-              <option value="CN" ${state.companyCountryKeyword === "CN" ? "selected" : ""}>中国</option>
-              <option value="MY" ${state.companyCountryKeyword === "MY" ? "selected" : ""}>马来西亚</option>
+              <option value="CN" ${countryKeyword === "CN" ? "selected" : ""}>中国</option>
+              <option value="MY" ${countryKeyword === "MY" ? "selected" : ""}>马来西亚</option>
             </select>
           </label>
-          <label class="field"><span>注册证照号码</span><input id="companyRegistrationInput" value="${escapeHtml(state.companyRegistrationKeyword)}" placeholder="请输入统一社会信用代码或 BRN" /></label>
+          <label class="field"><span>注册证照号码</span><input id="${inputId("RegistrationInput")}" value="${escapeHtml(registrationKeyword)}" placeholder="请输入统一社会信用代码或 BRN" /></label>
           <label class="field"><span>公司类型</span>
-            <select id="companyTypeInput">
+            <select id="${inputId("TypeInput")}">
               <option value="">全部</option>
-              <option value="Head" ${state.companyTypeKeyword === "Head" ? "selected" : ""}>总公司</option>
-              <option value="Branch" ${state.companyTypeKeyword === "Branch" ? "selected" : ""}>分公司</option>
+              <option value="Head" ${typeKeyword === "Head" ? "selected" : ""}>总公司</option>
+              <option value="Branch" ${typeKeyword === "Branch" ? "selected" : ""}>分公司</option>
             </select>
           </label>
           <label class="field"><span>发票功能状态</span>
-            <select id="companyInvoiceStatusInput">
+            <select id="${inputId("InvoiceStatusInput")}">
               <option value="">全部</option>
-              <option value="unopened" ${state.companyInvoiceStatusKeyword === "unopened" ? "selected" : ""}>未开通</option>
-              <option value="opened" ${state.companyInvoiceStatusKeyword === "opened" ? "selected" : ""}>已开通</option>
-              <option value="opening" ${state.companyInvoiceStatusKeyword === "opening" ? "selected" : ""}>开通中</option>
-              <option value="failed" ${state.companyInvoiceStatusKeyword === "failed" ? "selected" : ""}>开通失败</option>
+              <option value="unopened" ${invoiceStatusKeyword === "unopened" ? "selected" : ""}>未开通</option>
+              <option value="opened" ${invoiceStatusKeyword === "opened" ? "selected" : ""}>已开通</option>
+              <option value="opening" ${invoiceStatusKeyword === "opening" ? "selected" : ""}>开通中</option>
+              <option value="failed" ${invoiceStatusKeyword === "failed" ? "selected" : ""}>开通失败</option>
             </select>
           </label>
           <div class="inline-actions">
-            <button class="button primary" type="button" data-action="search-companies">查询</button>
-            <button class="button" type="button" data-action="reset-companies">重置</button>
+            <button class="button primary" type="button" data-action="${searchAction}">查询</button>
+            <button class="button" type="button" data-action="${resetAction}">重置</button>
           </div>
         </div>
-        <div class="toolbar-actions"><button class="button primary" type="button" data-action="create-company">创建公司</button></div>
+        ${
+          showCreateAction
+            ? '<div class="toolbar-actions"><button class="button primary" type="button" data-action="create-company">创建公司</button></div>'
+            : ""
+        }
       </div>
       <div class="table-scroll">
         <table class="data-table company-list-table">
@@ -2278,7 +2297,7 @@ function renderCompanyList(customer) {
                     <td class="actions">
                       <button class="button link" type="button" data-action="open-company-detail" data-id="${company.id}">详情</button>
                       ${
-                        company.country === "MY"
+                        showInvoiceOpenAction && company.country === "MY"
                           ? `<button class="button link" type="button" data-action="open-company-invoice-from-list" data-id="${company.id}">开通</button>`
                           : ""
                       }
@@ -2293,6 +2312,21 @@ function renderCompanyList(customer) {
       <div class="pagination"><span>共 ${companies.length} 条</span></div>
     </div>
   `;
+}
+
+function renderCompanyList(customer) {
+  return renderCompanyCollection(customer, {
+    sourceCompanies: customer.companies,
+    countryKeyword: state.companyCountryKeyword,
+    nameKeyword: state.companyNameKeyword,
+    registrationKeyword: state.companyRegistrationKeyword,
+    typeKeyword: state.companyTypeKeyword,
+    invoiceStatusKeyword: state.companyInvoiceStatusKeyword,
+    inputPrefix: "company",
+    searchAction: "search-companies",
+    resetAction: "reset-companies",
+    showCreateAction: true,
+  });
 }
 
 function renderBrandList(customer) {
@@ -2696,87 +2730,21 @@ function confirmRemoveCompanyStore() {
 }
 
 function renderCompanyBranches(customer, company) {
-  const nameKeyword = state.companyBranchNameKeyword.toLowerCase();
-  const registrationKeyword = state.companyBranchRegistrationKeyword.toLowerCase();
-  const tinKeyword = state.companyBranchTinKeyword.toLowerCase();
-  const sstKeyword = state.companyBranchSstKeyword.toLowerCase();
-  const branches = customer.companies.filter((item) => {
-    if ((item.type || "Head") !== "Branch" || item.parentCompanyId !== company.id || item.country !== company.country) return false;
-    const registration = item.country === "MY" ? item.licenses.BRN : item.licenses.USCC;
-    const matchesName = !nameKeyword || item.legalName.toLowerCase().includes(nameKeyword);
-    const matchesRegistration = !registrationKeyword || (registration || "").toLowerCase().includes(registrationKeyword);
-    const matchesTin = item.country !== "MY" || !tinKeyword || (item.licenses.TIN || "").toLowerCase().includes(tinKeyword);
-    const matchesSst = item.country !== "MY" || !sstKeyword || (item.licenses.SST || "").toLowerCase().includes(sstKeyword);
-    const matchesInvoiceStatus = !state.companyBranchInvoiceStatusKeyword || item.invoiceStatus === state.companyBranchInvoiceStatusKeyword;
-    return matchesName && matchesRegistration && matchesTin && matchesSst && matchesInvoiceStatus;
+  const directBranches = customer.companies.filter((item) => {
+    return (item.type || "Head") === "Branch" && item.parentCompanyId === company.id;
   });
-  const registrationLabel = company.country === "MY" ? "商业注册号码（BRN）" : "统一社会信用代码";
-  return `
-    <div class="tab-panel">
-      <div class="toolbar branch-toolbar">
-        <div class="filter-fields company-filter-fields company-branch-filter-fields">
-          <label class="field"><span>公司名称</span><input id="companyBranchNameInput" value="${escapeHtml(state.companyBranchNameKeyword)}" placeholder="请输入公司名称" /></label>
-          <label class="field"><span>${registrationLabel}</span><input id="companyBranchRegistrationInput" value="${escapeHtml(state.companyBranchRegistrationKeyword)}" placeholder="请输入${registrationLabel}" /></label>
-          ${
-            company.country === "MY"
-              ? `
-                <label class="field"><span>税务识别号码（TIN）</span><input id="companyBranchTINInput" value="${escapeHtml(state.companyBranchTinKeyword)}" placeholder="请输入税务识别号码（TIN）" /></label>
-                <label class="field"><span>销售与服务税注册号码（SST）</span><input id="companyBranchSSTInput" value="${escapeHtml(state.companyBranchSstKeyword)}" placeholder="请输入销售与服务税注册号码（SST）" /></label>
-              `
-              : ""
-          }
-          <label class="field"><span>公司类型</span><select id="companyBranchTypeInput" disabled><option selected>分公司</option></select></label>
-          <label class="field"><span>发票功能状态</span>
-            <select id="companyBranchInvoiceStatusInput">
-              <option value="">全部</option>
-              <option value="unopened" ${state.companyBranchInvoiceStatusKeyword === "unopened" ? "selected" : ""}>未开通</option>
-              <option value="opened" ${state.companyBranchInvoiceStatusKeyword === "opened" ? "selected" : ""}>已开通</option>
-              ${
-                company.country === "CN"
-                  ? `
-                    <option value="opening" ${state.companyBranchInvoiceStatusKeyword === "opening" ? "selected" : ""}>开通中</option>
-                    <option value="failed" ${state.companyBranchInvoiceStatusKeyword === "failed" ? "selected" : ""}>开通失败</option>
-                  `
-                  : ""
-              }
-            </select>
-          </label>
-          <div class="inline-actions">
-            <button class="button primary" type="button" data-action="search-company-branches">查询</button>
-            <button class="button" type="button" data-action="reset-company-branches">重置</button>
-          </div>
-        </div>
-      </div>
-      ${
-        branches.length
-          ? `
-            <div class="table-scroll">
-              <table class="data-table branch-list-table">
-                <thead><tr><th>公司名称</th><th>${registrationLabel}</th><th>备注</th><th>公司编号</th><th>创建时间</th><th>操作</th></tr></thead>
-                <tbody>
-                  ${branches
-                    .map(
-                      (branch) => `
-                        <tr>
-                          <td>${escapeHtml(branch.legalName)}</td>
-                          <td>${escapeHtml((branch.country === "MY" ? branch.licenses.BRN : branch.licenses.USCC) || "-")}</td>
-                          <td>${escapeHtml(branch.remark || "-")}</td>
-                          <td>${escapeHtml(branch.id)}</td>
-                          <td>${escapeHtml(branch.createdAt || "-")}</td>
-                          <td><button class="button link" type="button" data-action="open-company-detail" data-id="${branch.id}">详情</button></td>
-                        </tr>
-                      `,
-                    )
-                    .join("")}
-                </tbody>
-              </table>
-            </div>
-            <div class="pagination"><span>共 ${branches.length} 条</span></div>
-          `
-          : emptyState("暂无匹配的分公司", "分公司创建后将在此展示")
-      }
-    </div>
-  `;
+  return renderCompanyCollection(customer, {
+    sourceCompanies: directBranches,
+    countryKeyword: state.companyBranchCountryKeyword,
+    nameKeyword: state.companyBranchNameKeyword,
+    registrationKeyword: state.companyBranchRegistrationKeyword,
+    typeKeyword: state.companyBranchTypeKeyword,
+    invoiceStatusKeyword: state.companyBranchInvoiceStatusKeyword,
+    inputPrefix: "companyBranch",
+    searchAction: "search-company-branches",
+    resetAction: "reset-company-branches",
+    showInvoiceOpenAction: false,
+  });
 }
 
 function renderCompanyFunction(customer, company) {
@@ -6370,10 +6338,10 @@ app.addEventListener("click", (event) => {
     state.currentCompanyId = target.dataset.id;
     state.companyTab = "master";
     state.companyFunctionView = "list";
+    state.companyBranchCountryKeyword = "";
     state.companyBranchNameKeyword = "";
     state.companyBranchRegistrationKeyword = "";
-    state.companyBranchTinKeyword = "";
-    state.companyBranchSstKeyword = "";
+    state.companyBranchTypeKeyword = "";
     state.companyBranchInvoiceStatusKeyword = "";
     state.companyStoreBrandKeyword = "";
     state.companyStoreNameKeyword = "";
@@ -6389,17 +6357,17 @@ app.addEventListener("click", (event) => {
   }
   if (action === "search-company-branches") {
     state.companyBranchNameKeyword = document.getElementById("companyBranchNameInput").value.trim();
+    state.companyBranchCountryKeyword = document.getElementById("companyBranchCountryFilterInput").value;
     state.companyBranchRegistrationKeyword = document.getElementById("companyBranchRegistrationInput").value.trim();
-    state.companyBranchTinKeyword = document.getElementById("companyBranchTINInput")?.value.trim() || "";
-    state.companyBranchSstKeyword = document.getElementById("companyBranchSSTInput")?.value.trim() || "";
+    state.companyBranchTypeKeyword = document.getElementById("companyBranchTypeInput").value;
     state.companyBranchInvoiceStatusKeyword = document.getElementById("companyBranchInvoiceStatusInput").value;
     render();
   }
   if (action === "reset-company-branches") {
+    state.companyBranchCountryKeyword = "";
     state.companyBranchNameKeyword = "";
     state.companyBranchRegistrationKeyword = "";
-    state.companyBranchTinKeyword = "";
-    state.companyBranchSstKeyword = "";
+    state.companyBranchTypeKeyword = "";
     state.companyBranchInvoiceStatusKeyword = "";
     render();
   }

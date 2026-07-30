@@ -2504,14 +2504,6 @@ input[readonly] {
   color: #646a73;
 }
 
-.branch-list-table {
-  min-width: 980px;
-}
-
-.branch-toolbar {
-  padding: 0 0 20px;
-}
-
 .company-store-toolbar {
   padding: 0 0 20px;
 }
