@@ -72,6 +72,7 @@ const malaysiaClassificationCatalog = [
 const malaysiaTaxTypeCatalog = [
   { code: "01", name: "Sales Tax", description: "销售税", rates: ["5%", "10%"] },
   { code: "02", name: "Service Tax", description: "服务税", rates: ["6%", "8%"] },
+  { code: "06", name: "Not Applicable", description: "不适用税", rates: ["0%"] },
 ];
 
 const initialCustomers = [
