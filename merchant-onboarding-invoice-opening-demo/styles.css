@@ -1,0 +1,1273 @@
+:root {
+  --sqb-page: #f7f8fa;
+  --sqb-surface: #ffffff;
+  --sqb-text: #323233;
+  --sqb-text-secondary: #646566;
+  --sqb-helper: #999999;
+  --sqb-placeholder: #cccccc;
+  --sqb-divider: #ebedf0;
+  --sqb-border: #dcdee0;
+  --sqb-primary: #ee9e00;
+  --sqb-primary-press: #be7e00;
+  --sqb-primary-light: #fdf5e5;
+  --sqb-link: #365db0;
+  --sqb-success: #07c160;
+  --sqb-error: #f53f3f;
+  --sqb-warning-text: #ed6a0c;
+  --sqb-warning-bg: #fffbe8;
+  --sqb-card-radius: 8px;
+  --sqb-dialog-radius: 16px;
+  --sqb-button-radius: 9999px;
+  --sqb-gutter: 12px;
+  --sqb-section-gap: 8px;
+  --sqb-bottom-shadow: 0 2px 12px 0 rgb(100 101 102 / 12%);
+  color: var(--sqb-text);
+  background: var(--sqb-page);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: var(--sqb-page); }
+button, input { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#app {
+  width: min(100%, 375px);
+  min-height: 100vh;
+  margin: 0 auto;
+  background: var(--sqb-page);
+}
+
+.app-shell { min-height: 100vh; }
+
+.nav-bar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  display: grid;
+  min-height: 44px;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  background: var(--sqb-surface);
+}
+
+.nav-title {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-back {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--sqb-text);
+  cursor: pointer;
+}
+
+.nav-back .bi { font-size: 20px; }
+
+.page {
+  min-height: calc(100vh - 44px);
+  padding: 8px var(--sqb-gutter) calc(28px + env(safe-area-inset-bottom));
+}
+
+.page.has-actions {
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  min-height: 72px;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 8px;
+  margin: 0 calc(-1 * var(--sqb-gutter)) 12px;
+  padding: 14px 24px 10px;
+  overflow: hidden;
+  background: var(--sqb-surface);
+  list-style: none;
+}
+
+.steps::before {
+  position: absolute;
+  top: 23px;
+  left: 25%;
+  width: 50%;
+  height: 1px;
+  background: var(--sqb-border);
+  content: "";
+}
+
+.steps li {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: var(--sqb-helper);
+  font-size: 13px;
+  line-height: 19px;
+  text-align: center;
+}
+
+.steps li::before {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sqb-border);
+  color: var(--sqb-surface);
+  content: "";
+}
+
+.steps li.active,
+.steps li.done {
+  color: var(--sqb-primary-press);
+  font-weight: 500;
+}
+
+.steps li.active::before,
+.steps li.done::before {
+  background: var(--sqb-primary);
+  box-shadow: 0 0 0 3px var(--sqb-primary-light);
+}
+
+h1 {
+  margin: 0;
+  color: var(--sqb-text);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+p { line-height: 1.5; }
+.content-title { margin: 4px 4px 12px; }
+
+.info-group,
+.selection-group,
+.guide-placeholder,
+.video-placeholder,
+.result-card {
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+}
+
+.info-group { overflow: hidden; }
+
+.info-row {
+  position: relative;
+  display: grid;
+  min-height: 56px;
+  grid-template-columns: 124px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  font-size: 15px;
+  line-height: 21px;
+}
+
+.info-row + .info-row::before {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  left: 16px;
+  height: 1px;
+  background: var(--sqb-divider);
+  content: "";
+}
+
+.info-row span {
+  color: var(--sqb-helper);
+  font-size: 13px;
+  line-height: 19px;
+  white-space: nowrap;
+}
+
+.info-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--sqb-text);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 21px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+fieldset.field {
+  padding: 0 16px 8px;
+  border: 0;
+}
+
+.selection-heading {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--sqb-divider);
+  font-weight: 500;
+}
+
+fieldset.field label {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 21px;
+}
+
+fieldset.field input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--sqb-primary);
+}
+
+.taxpayer-guide-link,
+.refresh-progress-link {
+  color: var(--sqb-link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.taxpayer-guide-link {
+  flex: none;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.error {
+  margin: 8px 4px 0;
+  color: var(--sqb-error);
+  font-size: 13px;
+}
+
+.empty-state {
+  margin-top: 8px;
+  padding: 28px 16px;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+  text-align: center;
+}
+
+.detail-guide-banner {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+  color: var(--sqb-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guide-arrow {
+  color: var(--sqb-helper);
+  font-size: 18px;
+  transform: rotate(180deg);
+}
+
+.opening-status {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-warning-bg);
+  color: var(--sqb-warning-text);
+  font-size: 14px;
+}
+
+.invite-poster {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--sqb-card-radius);
+  box-shadow: none;
+}
+
+.refresh-progress-link {
+  display: block;
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 21px;
+  text-align: center;
+}
+
+.result-layout { padding-top: 4px; }
+
+.result-card {
+  min-height: 174px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.result-card h1 {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+}
+
+.result-card > p {
+  margin: 12px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.result-icon {
+  display: inline-block;
+  font-size: 50px;
+  line-height: 1;
+}
+
+.result-icon.success { color: var(--sqb-success); }
+.result-icon.failure { color: var(--sqb-error); }
+.result-icon.processing { color: var(--sqb-primary); }
+
+.result-info {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.result-info strong { color: var(--sqb-text); font-weight: 400; }
+
+.result-action {
+  margin-top: 12px;
+}
+
+.merchant-onboarding-success .result-card {
+  padding-bottom: 0;
+}
+
+.merchant-onboarding-success .result-card h1 {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.merchant-result-info {
+  margin-top: 24px;
+  border-top: 1px solid var(--sqb-divider);
+  text-align: left;
+}
+
+.merchant-result-row {
+  display: grid;
+  min-height: 44px;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--sqb-divider);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.merchant-result-row:last-child {
+  border-bottom: 0;
+}
+
+.merchant-result-row span {
+  color: var(--sqb-helper);
+}
+
+.merchant-result-row strong {
+  overflow-wrap: anywhere;
+  font-weight: 400;
+  text-align: right;
+}
+
+.guide-page h1 { margin: 8px 0 12px; }
+
+.wechat-shop-demo {
+  display: grid;
+  gap: var(--sqb-section-gap);
+}
+
+.wechat-shop-demo-heading,
+.merchant-simulation-card,
+.shop-service-card {
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+}
+
+.wechat-shop-demo-heading {
+  padding: 16px;
+}
+
+.wechat-shop-demo-heading h1 {
+  margin-top: 10px;
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.wechat-shop-demo-heading p {
+  margin: 6px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.demo-badge {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--sqb-button-radius);
+  background: var(--sqb-primary-light);
+  color: var(--sqb-primary-press);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.merchant-simulation-card {
+  padding: 16px;
+}
+
+.merchant-simulation-card h2,
+.shop-service-card h2 {
+  margin: 0;
+  color: var(--sqb-text);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.merchant-type-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.merchant-type-option {
+  display: grid;
+  min-height: 64px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+  color: var(--sqb-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.merchant-type-option.selected {
+  border-color: var(--sqb-primary);
+  background: var(--sqb-primary-light);
+}
+
+.merchant-radio {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--sqb-border);
+  border-radius: 50%;
+  background: var(--sqb-surface);
+}
+
+.merchant-type-option.selected .merchant-radio {
+  border-color: var(--sqb-primary);
+}
+
+.merchant-type-option.selected .merchant-radio::after {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--sqb-primary);
+  content: "";
+}
+
+.merchant-type-option strong {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 21px;
+}
+
+.shop-service-card {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+.shop-service-card p {
+  margin: 4px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.shop-service-status {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--sqb-button-radius);
+  background: var(--sqb-primary-light);
+  color: var(--sqb-primary-press);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.license-blocked-state {
+  padding-top: 4px;
+}
+
+.license-blocked-state .result-card {
+  display: grid;
+  min-height: 288px;
+  align-content: center;
+  justify-items: center;
+  padding: 32px 28px;
+}
+
+.license-blocked-state .result-card h1 {
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.license-blocked-state .result-card > p {
+  max-width: 260px;
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.opening-notice-page {
+  display: grid;
+  gap: var(--sqb-section-gap);
+}
+
+.opening-notice-page > h1 {
+  margin: 4px 4px 8px;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.opening-notice-item {
+  padding: 16px;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+}
+
+.opening-notice-item h2 {
+  margin: 0;
+  color: var(--sqb-text);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.opening-notice-item h2 span {
+  color: var(--sqb-primary-press);
+}
+
+.opening-notice-item p {
+  margin: 8px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.opening-notice-images {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.opening-notice-images img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--sqb-divider);
+  border-radius: 6px;
+}
+
+.opening-notice-item .service-phone {
+  color: var(--sqb-text);
+}
+
+.service-phone a {
+  color: var(--sqb-link);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.taxpayer-guide-page {
+  display: grid;
+  gap: var(--sqb-section-gap);
+}
+
+.taxpayer-guide-intro,
+.taxpayer-guide-images {
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+}
+
+.taxpayer-guide-intro {
+  padding: 16px;
+}
+
+.taxpayer-guide-intro h1 {
+  margin: 0 0 14px;
+}
+
+.taxpayer-guide-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.taxpayer-guide-steps li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  color: var(--sqb-text);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.taxpayer-guide-steps span {
+  color: var(--sqb-primary-press);
+  font-weight: 500;
+}
+
+.taxpayer-guide-steps p {
+  margin: 0;
+}
+
+.taxpayer-guide-images {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.taxpayer-guide-images img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--sqb-divider);
+  border-radius: 6px;
+}
+
+.guide-placeholder {
+  padding: 20px 16px;
+}
+
+.guide-placeholder p,
+.video-placeholder p {
+  margin: 8px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+}
+
+.video-placeholder {
+  display: grid;
+  min-height: 180px;
+  margin-top: 8px;
+  padding: 20px 16px;
+  place-content: center;
+  color: var(--sqb-text-secondary);
+  text-align: center;
+}
+
+.wechat-shop-return { padding-top: 4px; }
+.return-result { color: var(--sqb-success); }
+.return-result p { margin: 8px 0 0; color: var(--sqb-text); }
+
+.page-actions {
+  position: fixed;
+  z-index: 20;
+  right: 50%;
+  bottom: 0;
+  width: min(100%, 375px);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  transform: translateX(50%);
+  background: rgb(255 255 255 / 96%);
+  box-shadow: var(--sqb-bottom-shadow);
+  backdrop-filter: blur(8px);
+}
+
+.page-actions.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.action-button {
+  width: 100%;
+  min-height: 44px;
+  border-radius: var(--sqb-button-radius);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.action-button.primary {
+  border: 1px solid var(--sqb-primary);
+  background: var(--sqb-primary);
+  color: var(--sqb-surface);
+}
+
+.action-button.primary:active {
+  border-color: var(--sqb-primary-press);
+  background: var(--sqb-primary-press);
+}
+
+.action-button.secondary {
+  border: 1px solid var(--sqb-primary);
+  background: transparent;
+  color: var(--sqb-primary-press);
+}
+
+.action-button:focus-visible,
+.merchant-type-option:focus-visible,
+.refresh-progress-link:focus-visible,
+.taxpayer-guide-link:focus-visible,
+.taxpayer-guide-helper a:focus-visible,
+.authorization-guide-banner:focus-visible,
+.taxpayer-type-row:focus-visible,
+.taxpayer-sheet-option:focus-visible,
+.taxpayer-sheet-cancel:focus-visible,
+.inline-action-button:focus-visible,
+.detail-guide-banner:focus-visible,
+.nav-back:focus-visible,
+.simulator-option:focus-visible,
+.simulator-close:focus-visible {
+  outline: 2px solid var(--sqb-link);
+  outline-offset: 2px;
+}
+
+.simulator-backdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 42%);
+}
+
+.simulator-sheet {
+  width: min(100%, 375px);
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: var(--sqb-dialog-radius) var(--sqb-dialog-radius) 0 0;
+  background: var(--sqb-surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.simulator-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.simulator-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.simulator-close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--sqb-text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.simulator-copy {
+  margin: 8px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 13px;
+}
+
+.simulator-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.simulator-option {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--sqb-border);
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+  color: var(--sqb-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.simulator-option strong { font-size: 15px; }
+.simulator-option span { color: var(--sqb-text-secondary); font-size: 12px; text-align: right; }
+.reason-options .simulator-option { justify-content: flex-start; line-height: 1.5; }
+.reason-options .simulator-option:has(strong) { justify-content: space-between; }
+
+.opening-sections {
+  display: grid;
+  gap: var(--sqb-section-gap);
+}
+
+.opening-card {
+  overflow: hidden;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+}
+
+.section-title,
+.section-title-row h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.section-header {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--sqb-divider);
+}
+
+.section-title-row {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.info-list {
+  padding: 0 16px;
+}
+
+.opening-card .info-row {
+  min-height: 48px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  padding: 0;
+}
+
+.opening-card .info-row + .info-row::before {
+  right: 0;
+  left: 0;
+}
+
+.invoice-info-section .info-row + .info-row::before {
+  display: none;
+}
+
+.opening-card .info-row span {
+  color: var(--sqb-text-secondary);
+  font-size: 15px;
+  line-height: 21px;
+}
+
+.opening-card .info-row strong {
+  text-align: right;
+}
+
+.taxpayer-type-row {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sqb-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.taxpayer-type-row .select-value.placeholder {
+  color: var(--sqb-primary);
+}
+
+.taxpayer-type-row .select-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.taxpayer-type-row .select-value .bi {
+  color: var(--sqb-helper);
+  font-size: 14px;
+}
+
+.taxpayer-type-row .select-value.placeholder .bi {
+  color: var(--sqb-primary);
+}
+
+.taxpayer-guide-helper {
+  padding: 0 0 12px;
+  color: var(--sqb-helper);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: left;
+}
+
+.taxpayer-guide-helper a {
+  color: var(--sqb-link);
+  text-decoration: none;
+}
+
+.field-error {
+  margin: 0;
+  padding: 0 16px 12px;
+  color: var(--sqb-error);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.authorization-guide-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--sqb-card-radius);
+  background: var(--sqb-surface);
+  color: var(--sqb-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.authorization-guide-banner .bi {
+  color: var(--sqb-helper);
+  font-size: 14px;
+}
+
+.tencent-status-hero {
+  padding: 28px 16px 20px;
+  text-align: center;
+}
+
+.tencent-status-title {
+  margin: 0;
+  color: var(--sqb-text-secondary);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+  text-align: center;
+}
+
+.tencent-status-hero.opening .tencent-status-title {
+  color: var(--sqb-primary-press);
+}
+
+.tencent-status-hero.failed .tencent-status-title {
+  color: var(--sqb-error);
+}
+
+.tencent-status-hero.success .tencent-status-title {
+  color: var(--sqb-success);
+}
+
+.tencent-status-description {
+  display: block;
+  padding-top: 8px;
+  color: var(--sqb-helper);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+}
+
+.tencent-status-description.failed {
+  color: var(--sqb-error);
+}
+
+.tencent-status-description strong,
+.tencent-status-description span {
+  display: block;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.tencent-subject-section {
+  padding: 8px 0 16px;
+}
+
+.tencent-subject-title {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--sqb-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.tencent-subject-section .info-row {
+  min-height: 44px;
+}
+
+.tencent-subject-section .info-row + .info-row::before {
+  display: none;
+}
+
+.inline-action-button {
+  display: block;
+  width: auto;
+  min-height: 28px;
+  margin: 12px auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sqb-primary-press);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.progress-query-link {
+  justify-self: center;
+  min-height: 36px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--sqb-primary-press);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.taxpayer-sheet-backdrop {
+  position: fixed;
+  z-index: 45;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 42%);
+}
+
+.taxpayer-sheet {
+  width: min(100%, 375px);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  border-radius: var(--sqb-dialog-radius) var(--sqb-dialog-radius) 0 0;
+  background: var(--sqb-surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.taxpayer-sheet h2 {
+  min-height: 48px;
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  text-align: center;
+}
+
+.taxpayer-sheet-options {
+  overflow: hidden;
+  background: var(--sqb-surface);
+}
+
+.taxpayer-sheet-option,
+.taxpayer-sheet-cancel {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 0;
+  background: var(--sqb-surface);
+  color: var(--sqb-text);
+  cursor: pointer;
+}
+
+.taxpayer-sheet-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  text-align: left;
+}
+
+.taxpayer-sheet-option + .taxpayer-sheet-option::before {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  left: 16px;
+  height: 1px;
+  background: var(--sqb-divider);
+  content: "";
+}
+
+.taxpayer-sheet-option.selected {
+  color: var(--sqb-primary-press);
+}
+
+.taxpayer-sheet-option strong {
+  color: var(--sqb-primary-press);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.taxpayer-sheet-cancel {
+  margin-top: 8px;
+  border-radius: 0;
+  background: var(--sqb-surface);
+  box-shadow: 0 -8px 0 var(--sqb-page);
+  font-size: 16px;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  padding: 24px;
+  place-items: center;
+  background: rgb(0 0 0 / 42%);
+}
+
+.confirm-dialog,
+.qr-dialog {
+  width: min(100%, 327px);
+  padding: 20px;
+  border-radius: var(--sqb-dialog-radius);
+  background: var(--sqb-surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.confirm-dialog h2,
+.qr-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+}
+
+.dialog-close {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  margin: -8px -8px -8px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sqb-text-primary);
+  cursor: pointer;
+  place-items: center;
+}
+
+.dialog-close:active {
+  background: var(--sqb-page);
+}
+
+.dialog-close i {
+  font-size: 20px;
+}
+
+.confirm-dialog p {
+  margin: 12px 0 0;
+  color: var(--sqb-text-secondary);
+  font-size: 14px;
+}
+
+.qr-dialog img {
+  display: block;
+  width: 100%;
+  max-height: min(56vh, 404px);
+  margin: 12px auto 16px;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.toast {
+  position: fixed;
+  z-index: 60;
+  right: 50%;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  max-width: calc(min(100%, 375px) - 32px);
+  padding: 10px 14px;
+  transform: translateX(50%);
+  border-radius: var(--sqb-card-radius);
+  background: rgb(50 50 51 / 92%);
+  color: var(--sqb-surface);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 375px) {
+  #app,
+  .page-actions,
+  .simulator-sheet,
+  .taxpayer-sheet { width: 100%; }
+}
