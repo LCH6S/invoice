@@ -1296,8 +1296,6 @@ const state = {
   customerErrors: {},
   companyDraft: null,
   companyErrors: {},
-  companyInvoiceOpenStep: 1,
-  companyInvoiceProductSelected: true,
   companyInvoiceOpenError: "",
   companyInvoiceMissingLicenses: [],
   companyStoreBrandKeyword: "",
@@ -2097,8 +2095,6 @@ function closeModal() {
   state.modalContext = null;
   state.companyDraft = null;
   state.companyErrors = {};
-  state.companyInvoiceOpenStep = 1;
-  state.companyInvoiceProductSelected = true;
   state.companyInvoiceOpenError = "";
   state.companyInvoiceMissingLicenses = [];
   state.companyStoreRemovingId = "";
@@ -2280,7 +2276,6 @@ function renderCompanyCollection(customer, options) {
     searchAction,
     resetAction,
     showCreateAction = false,
-    showInvoiceOpenAction = true,
   } = options;
   const normalizedNameKeyword = nameKeyword.toLowerCase();
   const normalizedRegistrationKeyword = registrationKeyword.toLowerCase();
@@ -2338,7 +2333,7 @@ function renderCompanyCollection(customer, options) {
       <div class="table-scroll">
         <table class="data-table company-list-table">
           <thead>
-            <tr><th>公司名称</th><th>国家/地区</th><th>公司类型</th><th>上级公司</th><th>注册证照号码</th><th>发票功能状态</th><th>操作</th></tr>
+            <tr><th>公司名称</th><th>国家/地区</th><th>公司类型</th><th>上级公司</th><th>注册证照号码</th><th>操作</th></tr>
           </thead>
           <tbody>
             ${companies
@@ -2351,14 +2346,8 @@ function renderCompanyCollection(customer, options) {
                     <td>${companyTypes[company.type || "Head"]}</td>
                     <td>${escapeHtml(parentCompanyName(customer, company))}</td>
                     <td>${escapeHtml(primaryRegistration.value || "-")}</td>
-                    <td>${statusTag(company.invoiceStatus)}</td>
                     <td class="actions">
                       <button class="button link" type="button" data-action="open-company-detail" data-id="${company.id}">详情</button>
-                      ${
-                        showInvoiceOpenAction && company.country === "MY" && company.invoiceStatus !== "opened"
-                          ? `<button class="button link" type="button" data-action="open-company-invoice-from-list" data-id="${company.id}">开通</button>`
-                          : ""
-                      }
                     </td>
                   </tr>
                 `;
@@ -2484,7 +2473,7 @@ function renderCompanyDetail() {
         ${companyTabButton("master", "公司信息")}
         ${companyTabButton("stores", "门店管理")}
         ${(company.type || "Head") === "Head" ? companyTabButton("branches", "分公司管理") : ""}
-        ${companyTabButton("function", "电子发票业务摘要")}
+        ${companyTabButton("function", "电子发票")}
       </div>
       ${renderCompanyTab(customer, company)}
     </section>
@@ -2800,17 +2789,17 @@ function renderCompanyBranches(customer, company) {
     inputPrefix: "companyBranch",
     searchAction: "search-company-branches",
     resetAction: "reset-company-branches",
-    showInvoiceOpenAction: false,
   });
 }
 
 function renderCompanyFunction(customer, company) {
   const status = invoiceStatuses[company.invoiceStatus] || invoiceStatuses.unopened;
   const chinaReadonly = company.country === "CN";
+  const opened = company.invoiceStatus === "opened";
   const taxNo = company.country === "MY" ? company.licenses.TIN : company.licenses.USCC;
-  const mode = company.invoiceStatus === "opened" ? company.invoiceMode || (chinaReadonly ? "乐企联用" : "MyInvois") : "-";
+  const mode = opened ? company.invoiceMode || (chinaReadonly ? "乐企联用" : "MyInvois") : "-";
   const taxpayerName = company.taxpayerExists ? company.legalName : "-";
-  const action = !chinaReadonly && company.invoiceStatus !== "opened" && customer.productOpen
+  const action = !chinaReadonly && !opened && customer.productOpen
     ? `<button class="button primary" type="button" data-action="open-company-invoice">开通</button>`
     : "";
   const notice = chinaReadonly
@@ -2823,16 +2812,20 @@ function renderCompanyFunction(customer, company) {
     <div class="tab-panel company-invoice-summary">
       ${notice}
       <div class="panel-head" style="padding:0 0 18px">
-        <div><h2>电子发票业务摘要</h2><p>查看当前公司的纳税人和开票能力。</p></div>
+        <div><h2>电子发票</h2></div>
         ${action}
       </div>
-      <dl class="info-grid">
-        <div><dt>纳税人名称</dt><dd>${escapeHtml(taxpayerName)}</dd></div>
-        <div><dt>税务识别号码</dt><dd>${escapeHtml(taxNo || "-")}</dd></div>
-        <div><dt>电子发票功能状态</dt><dd><span class="tag ${status.className}">${status.label}</span></dd></div>
-        <div><dt>当前开票模式 / 方案</dt><dd>${escapeHtml(mode)}</dd></div>
-        <div><dt>最近更新时间</dt><dd>${escapeHtml(company.openedAt || company.createdAt || "-")}</dd></div>
-      </dl>
+      ${
+        opened
+          ? `<dl class="info-grid">
+              <div><dt>纳税人名称</dt><dd>${escapeHtml(taxpayerName)}</dd></div>
+              <div><dt>税务识别号码</dt><dd>${escapeHtml(taxNo || "-")}</dd></div>
+              <div><dt>电子发票功能状态</dt><dd><span class="tag ${status.className}">${status.label}</span></dd></div>
+              <div><dt>当前开票模式 / 方案</dt><dd>${escapeHtml(mode)}</dd></div>
+              <div><dt>最近更新时间</dt><dd>${escapeHtml(company.openedAt || company.createdAt || "-")}</dd></div>
+            </dl>`
+          : emptyState("功能未开通")
+      }
     </div>
   `;
 }
@@ -4926,7 +4919,6 @@ function renderCompanyInvoiceOpenError() {
     action = `<button class="button link" type="button" data-action="edit-current-company">编辑公司信息</button>`;
   }
   const messages = {
-    product: "请选择需要开通的发票产品。",
     "customer-product": "客户维度的电子发票产品尚未开通，请先完成客户级产品开通。",
     "industry-mapping": "所属行业尚未配置马来西亚行业映射，请联系运营人员处理。",
     licenses: `公司信息不完整，请先补充：${state.companyInvoiceMissingLicenses.map((item) => item.label).join("、")}。`,
@@ -4935,60 +4927,40 @@ function renderCompanyInvoiceOpenError() {
 }
 
 function renderCompanyInvoiceOpenDrawer() {
+  const customer = currentCustomer();
   const company = currentCompany();
-  if (!company || company.country !== "MY") return;
-  const alreadyOpened = company.invoiceStatus === "opened";
-  const step = state.companyInvoiceOpenStep;
-  const title = step === 1 ? "开通功能" : "开通发票功能";
-  const body =
-    step === 1
-      ? `
-        <section class="company-open-section">
-          <h3>公司信息</h3>
-          <dl class="company-open-summary company-open-summary-single">
-            <div><dt>公司名称</dt><dd>${escapeHtml(company.legalName)}</dd></div>
-            <div><dt>商业注册号码（BRN）</dt><dd>${escapeHtml(company.licenses.BRN || "-")}</dd></div>
-          </dl>
-        </section>
-        <section class="company-open-section">
-          <h3>功能列表</h3>
-          <label class="company-open-product ${alreadyOpened ? "is-opened" : ""}">
-            <input id="companyInvoiceProductSelected" type="checkbox" ${alreadyOpened ? "disabled" : state.companyInvoiceProductSelected ? "checked" : ""} />
-            <span class="company-function-icon"><img src="./assets/receipt-text.svg" alt="" /></span>
-            <span class="company-function-copy"><strong>发票</strong><small>${alreadyOpened ? "发票功能已开通，无需重复开通" : "为该公司开通马来西亚电子发票功能"}</small></span>
-            <span class="tag ${alreadyOpened ? "success" : ""}">${alreadyOpened ? "已开通" : "未开通"}</span>
-          </label>
-        </section>
-        ${renderCompanyInvoiceOpenError()}
-      `
-      : `
-        <section class="company-open-section">
-          <h3>公司及证照信息</h3>
-          <dl class="review-list company-open-review">
-            <div><dt>公司名称</dt><dd>${escapeHtml(company.legalName)}</dd></div>
-            <div><dt>商业注册号码（BRN）</dt><dd>${escapeHtml(company.licenses.BRN)}</dd></div>
-            <div><dt>税务识别号码（TIN）</dt><dd>${escapeHtml(company.licenses.TIN)}</dd></div>
-            <div><dt>销售与服务税注册号码（SST）</dt><dd>${escapeHtml(company.licenses.SST)}</dd></div>
-          </dl>
-        </section>
-        <section class="company-open-section company-open-authorization">
-          <h3>税局授权提示</h3>
-          <div class="notice warning">
-            <span>企业需要先在马来西亚税局系统中完成发票中介机构授权</span>
-          </div>
-          <dl class="company-open-summary">
-            <div><dt>中介机构名称</dt><dd>待补充</dd></div>
-            <div><dt>中介机构编号</dt><dd>待补充</dd></div>
-          </dl>
-        </section>
-      `;
-  const actions =
-    step === 1
-      ? `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="next-company-invoice-open" ${alreadyOpened ? "disabled" : ""}>下一步</button>`
-      : `<button class="button" type="button" data-action="prev-company-invoice-open">上一步</button><span class="modal-foot-spacer"></span><button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="confirm-company-open">确认开通</button>`;
+  if (!company || company.country !== "MY" || company.invoiceStatus === "opened") return;
+  state.companyInvoiceOpenError = "";
+  state.companyInvoiceMissingLicenses = missingMalaysiaLicenses(company);
+  if (!customer.productOpen) state.companyInvoiceOpenError = "customer-product";
+  else if (!malaysiaIndustryMapping(company)) state.companyInvoiceOpenError = "industry-mapping";
+  else if (state.companyInvoiceMissingLicenses.length) state.companyInvoiceOpenError = "licenses";
+  const body = `
+    <section class="company-open-section">
+      <h3>公司及证照信息</h3>
+      <dl class="review-list company-open-review">
+        <div><dt>公司名称</dt><dd>${escapeHtml(company.legalName)}</dd></div>
+        <div><dt>商业注册号码（BRN）</dt><dd>${escapeHtml(company.licenses.BRN || "-")}</dd></div>
+        <div><dt>税务识别号码（TIN）</dt><dd>${escapeHtml(company.licenses.TIN || "-")}</dd></div>
+        <div><dt>销售与服务税注册号码（SST）</dt><dd>${escapeHtml(company.licenses.SST || "-")}</dd></div>
+      </dl>
+    </section>
+    <section class="company-open-section company-open-authorization">
+      <h3>税局授权提示</h3>
+      <div class="notice warning">
+        <span>企业需要先在马来西亚税局系统中完成发票中介机构授权</span>
+      </div>
+      <dl class="company-open-summary">
+        <div><dt>中介机构名称</dt><dd>待补充</dd></div>
+        <div><dt>中介机构编号</dt><dd>待补充</dd></div>
+      </dl>
+    </section>
+    ${renderCompanyInvoiceOpenError()}
+  `;
+  const actions = `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="confirm-company-open">确认开通</button>`;
   state.modalContext = "company-invoice-open";
   openModal({
-    title,
+    title: "开通发票功能",
     body,
     actions,
     drawer: true,
@@ -4998,46 +4970,10 @@ function renderCompanyInvoiceOpenDrawer() {
 
 function openCompanyInvoice() {
   const company = currentCompany();
-  if (!company || company.country !== "MY") return;
-  state.companyInvoiceOpenStep = 1;
-  state.companyInvoiceProductSelected = company.invoiceStatus !== "opened";
+  if (!company || company.country !== "MY" || company.invoiceStatus === "opened") return;
   state.companyInvoiceOpenError = "";
   state.companyInvoiceMissingLicenses = [];
   renderCompanyInvoiceOpenDrawer();
-}
-
-function nextCompanyInvoiceOpen() {
-  const customer = currentCustomer();
-  const company = currentCompany();
-  if (company?.invoiceStatus === "opened") return;
-  const selected = document.getElementById("companyInvoiceProductSelected");
-  state.companyInvoiceProductSelected = Boolean(selected?.checked);
-  state.companyInvoiceOpenError = "";
-  state.companyInvoiceMissingLicenses = [];
-
-  if (!state.companyInvoiceProductSelected) {
-    state.companyInvoiceOpenError = "product";
-  } else if (!customer.productOpen) {
-    state.companyInvoiceOpenError = "customer-product";
-  } else if (!malaysiaIndustryMapping(company)) {
-    state.companyInvoiceOpenError = "industry-mapping";
-  } else {
-    state.companyInvoiceMissingLicenses = missingMalaysiaLicenses(company);
-    if (state.companyInvoiceMissingLicenses.length) state.companyInvoiceOpenError = "licenses";
-  }
-  if (state.companyInvoiceOpenError) {
-    renderCompanyInvoiceOpenDrawer();
-    return;
-  }
-  state.companyInvoiceOpenStep = 2;
-  renderCompanyInvoiceOpenDrawer();
-}
-
-function openCompanyInvoiceFromList(companyId) {
-  state.currentCompanyId = companyId;
-  const company = currentCompany();
-  if (!company || company.country !== "MY") return;
-  openCompanyInvoice();
 }
 
 function confirmCompanyOpen() {
@@ -5047,7 +4983,6 @@ function confirmCompanyOpen() {
   const missing = missingMalaysiaLicenses(company);
   const mapping = malaysiaIndustryMapping(company);
   if (!customer.productOpen || !mapping || missing.length) {
-    state.companyInvoiceOpenStep = 1;
     state.companyInvoiceOpenError = !customer.productOpen ? "customer-product" : !mapping ? "industry-mapping" : "licenses";
     state.companyInvoiceMissingLicenses = missing;
     renderCompanyInvoiceOpenDrawer();
@@ -6733,7 +6668,6 @@ app.addEventListener("click", (event) => {
     state.customerTab = "products";
     render();
   }
-  if (action === "open-company-invoice-from-list") openCompanyInvoiceFromList(target.dataset.id);
   if (action === "open-company-invoice") openCompanyInvoice();
   if (action === "create-brand") openBrandEditor();
   if (action === "open-brand-detail") {
@@ -6993,13 +6927,6 @@ modalRoot.addEventListener("click", (event) => {
     const id = state.currentCompanyId;
     closeModal();
     openCompanyEditor(id);
-  }
-  if (action === "next-company-invoice-open") nextCompanyInvoiceOpen();
-  if (action === "prev-company-invoice-open") {
-    state.companyInvoiceOpenStep = 1;
-    state.companyInvoiceOpenError = "";
-    state.companyInvoiceMissingLicenses = [];
-    renderCompanyInvoiceOpenDrawer();
   }
   if (action === "go-product-feature-from-company-open") {
     closeModal();
