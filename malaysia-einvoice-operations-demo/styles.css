@@ -2695,6 +2695,64 @@ input[readonly] {
   border: 1px solid var(--line);
 }
 
+.company-open-editable-field dd {
+  display: grid;
+  gap: 4px;
+}
+
+.company-open-editable-field input {
+  width: 100%;
+  min-height: 36px;
+}
+
+.company-open-editable-field .field-message {
+  display: block;
+}
+
+.batch-store-invoice-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.batch-store-invoice-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.batch-store-invoice-picker-head label,
+.batch-store-invoice-picker-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-store-invoice-picker-list {
+  display: grid;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+}
+
+.batch-store-invoice-picker-list label {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.batch-store-invoice-picker-list label:last-child {
+  border-bottom: 0;
+}
+
+.batch-store-invoice-picker-list span {
+  flex: 1;
+}
+
+.batch-store-invoice-picker-list small {
+  color: var(--muted);
+}
+
 .company-open-authorization .notice {
   margin-bottom: 14px;
 }

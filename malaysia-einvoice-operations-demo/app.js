@@ -1279,12 +1279,10 @@ const state = {
   companyNameKeyword: "",
   companyRegistrationKeyword: "",
   companyTypeKeyword: "",
-  companyInvoiceStatusKeyword: "",
   companyBranchCountryKeyword: "",
   companyBranchNameKeyword: "",
   companyBranchRegistrationKeyword: "",
   companyBranchTypeKeyword: "",
-  companyBranchInvoiceStatusKeyword: "",
   brandNameKeyword: "",
   brandIdKeyword: "",
   brandStoreIdKeyword: "",
@@ -1297,7 +1295,8 @@ const state = {
   companyDraft: null,
   companyErrors: {},
   companyInvoiceOpenError: "",
-  companyInvoiceMissingLicenses: [],
+  companyInvoiceOpenDraft: { TIN: "", SST: "" },
+  companyInvoiceOpenFieldErrors: {},
   companyStoreBrandKeyword: "",
   companyStoreNameKeyword: "",
   companyStoreNoKeyword: "",
@@ -2096,7 +2095,8 @@ function closeModal() {
   state.companyDraft = null;
   state.companyErrors = {};
   state.companyInvoiceOpenError = "";
-  state.companyInvoiceMissingLicenses = [];
+  state.companyInvoiceOpenDraft = { TIN: "", SST: "" };
+  state.companyInvoiceOpenFieldErrors = {};
   state.companyStoreRemovingId = "";
   state.customerDraft = null;
   state.customerErrors = {};
@@ -2271,7 +2271,6 @@ function renderCompanyCollection(customer, options) {
     nameKeyword,
     registrationKeyword,
     typeKeyword,
-    invoiceStatusKeyword,
     inputPrefix,
     searchAction,
     resetAction,
@@ -2286,8 +2285,7 @@ function renderCompanyCollection(customer, options) {
     const matchesRegistration =
       !normalizedRegistrationKeyword || primaryRegistration.toLowerCase().includes(normalizedRegistrationKeyword);
     const matchesType = !typeKeyword || (company.type || "Head") === typeKeyword;
-    const matchesInvoiceStatus = !invoiceStatusKeyword || company.invoiceStatus === invoiceStatusKeyword;
-    return matchesCountry && matchesName && matchesRegistration && matchesType && matchesInvoiceStatus;
+    return matchesCountry && matchesName && matchesRegistration && matchesType;
   });
   const inputId = (name) => `${inputPrefix}${name}`;
   return `
@@ -2308,15 +2306,6 @@ function renderCompanyCollection(customer, options) {
               <option value="">全部</option>
               <option value="Head" ${typeKeyword === "Head" ? "selected" : ""}>总公司</option>
               <option value="Branch" ${typeKeyword === "Branch" ? "selected" : ""}>分公司</option>
-            </select>
-          </label>
-          <label class="field"><span>发票功能状态</span>
-            <select id="${inputId("InvoiceStatusInput")}">
-              <option value="">全部</option>
-              <option value="unopened" ${invoiceStatusKeyword === "unopened" ? "selected" : ""}>未开通</option>
-              <option value="opened" ${invoiceStatusKeyword === "opened" ? "selected" : ""}>已开通</option>
-              <option value="opening" ${invoiceStatusKeyword === "opening" ? "selected" : ""}>开通中</option>
-              <option value="failed" ${invoiceStatusKeyword === "failed" ? "selected" : ""}>开通失败</option>
             </select>
           </label>
           <div class="inline-actions">
@@ -2368,7 +2357,6 @@ function renderCompanyList(customer) {
     nameKeyword: state.companyNameKeyword,
     registrationKeyword: state.companyRegistrationKeyword,
     typeKeyword: state.companyTypeKeyword,
-    invoiceStatusKeyword: state.companyInvoiceStatusKeyword,
     inputPrefix: "company",
     searchAction: "search-companies",
     resetAction: "reset-companies",
@@ -2785,7 +2773,6 @@ function renderCompanyBranches(customer, company) {
     nameKeyword: state.companyBranchNameKeyword,
     registrationKeyword: state.companyBranchRegistrationKeyword,
     typeKeyword: state.companyBranchTypeKeyword,
-    invoiceStatusKeyword: state.companyBranchInvoiceStatusKeyword,
     inputPrefix: "companyBranch",
     searchAction: "search-company-branches",
     resetAction: "reset-company-branches",
@@ -3168,6 +3155,7 @@ function renderInvoiceBrandList(customer) {
 
 function invoiceImportRuleLabel(brand, kind = state.settingsImportKind) {
   if (kind === "rules") return "商品开票匹配规则";
+  if (kind === "payments") return "不可开票支付方式";
   return "税号兜底开票项目配置";
 }
 
@@ -3176,15 +3164,15 @@ function invoiceImportTaskKey(customer, brand, kind = state.settingsImportKind) 
 }
 
 function invoiceImportTemplateFields(brand, kind = state.settingsImportKind) {
-  return kind === "rules"
-    ? "商品大类、大类别名、税收分类编码、税种、税率、优惠政策、指定开票税号"
-    : "税号、大类别名、税收分类编码、税种、税率、优惠政策";
+  if (kind === "rules") return "商品大类、大类别名、税收分类编码、税种、税率、优惠政策、指定开票税号";
+  if (kind === "payments") return "支付方式编号、支付方式名称";
+  return "税号、大类别名、税收分类编码、税种、税率、优惠政策";
 }
 
 function ensureInvoiceImportTasks(customer, brand, kind = state.settingsImportKind) {
   const key = invoiceImportTaskKey(customer, brand, kind);
   if (!state.settingsImportTasks[key]) {
-    const suffix = `${brand.country}-${kind === "rules" ? "R" : "F"}`;
+    const suffix = `${brand.country}-${kind === "rules" ? "R" : kind === "payments" ? "P" : "F"}`;
     state.settingsImportTasks[key] = [
       {
         id: `IMP-${suffix}-26072801`,
@@ -3481,7 +3469,7 @@ function renderStoreInvoiceSettingsContent(customer, brand) {
       <label class="field"><span>门店编号</span><input id="settingsStoreNoInput" value="${escapeHtml(state.settingsStoreNoKeyword)}" placeholder="请输入门店编号" /></label>
       <div class="filter-actions"><button class="button primary" type="button" data-action="search-settings-stores">查询</button><button class="button" type="button" data-action="reset-settings-stores">重置</button></div>
     </div>
-    <div class="table-toolbar"><h3>门店列表</h3></div>
+    <div class="table-toolbar"><h3>门店列表</h3><button class="button" type="button" data-action="open-batch-store-invoice-company">批量设置主体</button></div>
     <div class="table-scroll">
       <table class="data-table store-invoice-settings-table">
         <thead><tr><th>门店名称</th><th>门店编号</th><th>默认开票公司</th><th>开票税号</th><th>开票状态</th><th>更新时间</th><th>操作</th></tr></thead>
@@ -3549,6 +3537,56 @@ function saveStoreInvoiceCompany() {
   closeModal();
   render();
   showToast(firstSetup ? "默认开票公司已设置，门店开票已开启" : "默认开票公司已更新");
+}
+
+function openBatchStoreInvoiceCompanyEditor() {
+  const customer = currentCustomer();
+  const brand = currentBrand();
+  if (!brand) return;
+  const companies = eligibleInvoiceCompanies(customer, brand);
+  state.modalContext = { type: "batch-store-invoice-company" };
+  openModal({
+    title: "批量设置默认开票公司",
+    drawer: true,
+    body: `
+      <div class="form-grid">
+        <label class="field required full"><span>默认开票公司</span><select id="batchStoreInvoiceCompany"><option value="">请选择</option>${companies.map((company) => `<option value="${company.id}">${escapeHtml(company.legalName)} · ${escapeHtml(companyTaxNumber(company))}</option>`).join("")}</select><small>只能选择当前客户下、与品牌同国且已开通电子发票的公司。</small></label>
+        <div class="batch-store-invoice-picker full">
+          <div class="batch-store-invoice-picker-head"><strong>选择门店</strong><label><input id="batchStoreInvoiceSelectAll" type="checkbox" /> 全选</label></div>
+          <div class="batch-store-invoice-picker-list">
+            ${brand.stores.map((store) => `<label><input type="checkbox" name="batchStoreInvoiceStore" value="${store.id}" /><span>${escapeHtml(store.name)}</span><small>${escapeHtml(store.storeNo)}</small></label>`).join("")}
+          </div>
+        </div>
+        <div class="field-message full" id="batchStoreInvoiceError"></div>
+      </div>
+    `,
+    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="save-batch-store-invoice-company">保存</button>`,
+  });
+}
+
+function saveBatchStoreInvoiceCompany() {
+  const brand = currentBrand();
+  const companyId = document.getElementById("batchStoreInvoiceCompany")?.value || "";
+  const company = eligibleInvoiceCompanies(currentCustomer(), brand).find((item) => item.id === companyId);
+  const selectedIds = [...document.querySelectorAll('input[name="batchStoreInvoiceStore"]:checked')].map((input) => input.value);
+  const error = document.getElementById("batchStoreInvoiceError");
+  if (!company) {
+    if (error) error.textContent = "请选择有效的默认开票公司";
+    return;
+  }
+  if (!selectedIds.length) {
+    if (error) error.textContent = "请至少选择一家门店";
+    return;
+  }
+  brand.stores.filter((store) => selectedIds.includes(store.id)).forEach((store) => {
+    const firstSetup = !store.invoiceCompanyId;
+    store.invoiceCompanyId = company.id;
+    if (firstSetup) store.invoiceEnabled = true;
+    store.updatedAt = nowText();
+  });
+  closeModal();
+  render();
+  showToast(`已为 ${selectedIds.length} 家门店设置默认开票公司`);
 }
 
 function requestToggleStoreInvoice(storeId) {
@@ -3770,7 +3808,7 @@ function renderUnifiedRuleSettingsContent(customer, brand) {
                         <td>${escapeHtml(preferentialPolicyDisplay(rule))}</td>
                         <td>${escapeHtml(companyLicenseName(customer, rule.specifiedCompanyId))}</td>
                         <td>${escapeHtml(rule.updatedAt || "-")}</td>
-                        <td><button class="button link" type="button" data-action="edit-rule" data-id="${rule.id}">编辑</button></td>
+                        <td><span class="actions"><button class="button link" type="button" data-action="edit-rule" data-id="${rule.id}">编辑</button><button class="button link danger-text" type="button" data-action="delete-rule" data-id="${rule.id}">删除</button></span></td>
                       </tr>
                     `,
                   )
@@ -3827,7 +3865,7 @@ function renderPaymentSettingsContent(brand) {
   return `
     <div class="panel-head settings-section-head">
       <div><h2>不可开票支付方式</h2><p>命中的支付方式金额不计入零售订单可开票金额。</p></div>
-      <button class="button primary" type="button" data-action="create-payment">新增支付方式</button>
+      <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="payments">批量添加</button><button class="button primary" type="button" data-action="create-payment">新增支付方式</button></div>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -3842,7 +3880,7 @@ function renderPaymentSettingsContent(brand) {
                         <td>${escapeHtml(item.code)}</td>
                         <td>${escapeHtml(item.name)}</td>
                         <td>${escapeHtml(item.updatedAt || "-")}</td>
-                        <td><button class="button link" type="button" data-action="edit-payment" data-id="${item.id}">编辑</button></td>
+                        <td><span class="actions"><button class="button link" type="button" data-action="edit-payment" data-id="${item.id}">编辑</button><button class="button link danger-text" type="button" data-action="delete-payment" data-id="${item.id}">删除</button></span></td>
                       </tr>
                     `,
                   )
@@ -4898,32 +4936,38 @@ function saveCompany() {
   showToast(existing ? "公司主档已更新" : "公司创建成功");
 }
 
-function missingMalaysiaLicenses(company) {
-  const labels = {
-    BRN: "商业注册号码（BRN）",
-    TIN: "税务识别号码（TIN）",
-    SST: "销售与服务税注册号码（SST）",
-  };
-  return Object.entries(labels)
-    .filter(([key]) => !company?.licenses?.[key]?.trim())
-    .map(([key, label]) => ({ key, label }));
-}
-
 function renderCompanyInvoiceOpenError() {
   if (!state.companyInvoiceOpenError) return "";
   let action = "";
   if (state.companyInvoiceOpenError === "customer-product") {
     action = `<button class="button link" type="button" data-action="go-product-feature-from-company-open">前往产品功能</button>`;
   }
-  if (state.companyInvoiceOpenError === "licenses") {
-    action = `<button class="button link" type="button" data-action="edit-current-company">编辑公司信息</button>`;
-  }
   const messages = {
     "customer-product": "客户维度的电子发票产品尚未开通，请先完成客户级产品开通。",
     "industry-mapping": "所属行业尚未配置马来西亚行业映射，请联系运营人员处理。",
-    licenses: `公司信息不完整，请先补充：${state.companyInvoiceMissingLicenses.map((item) => item.label).join("、")}。`,
   };
   return `<div class="notice warning company-open-error"><span>${messages[state.companyInvoiceOpenError]}</span>${action}</div>`;
+}
+
+function validateCompanyInvoiceOpenDraft(company, draft) {
+  const errors = {};
+  const tin = draft.TIN.trim().toUpperCase();
+  const sst = draft.SST.trim();
+  const tinPrefix = tin.match(/^[A-Z]+/)?.[0] || "";
+  const allowedTinPrefixes = ["C", "CS", "D", "F", "FA", "PT", "TA", "TC", "TN", "TR", "TP", "J", "LE"];
+  if (!tin) errors.TIN = "请输入税务识别号码（TIN）";
+  else if (tin.length > 14) errors.TIN = "TIN 最多 14 个字符";
+  else if (!/^[A-Z0-9]+$/.test(tin)) errors.TIN = "TIN 仅支持大写英文字母和数字";
+  else if (!allowedTinPrefixes.includes(tinPrefix)) errors.TIN = "请输入有效的企业 TIN";
+  else if (hasDuplicateLicense(company, "TIN", tin)) errors.TIN = "该 TIN 已被其他公司使用";
+
+  const sstParts = sst.split(";");
+  if (!sst) errors.SST = "请输入销售与服务税注册号码（SST）";
+  else if (sst.length > 35) errors.SST = "SST 最多 35 个字符";
+  else if (!/^[A-Za-z0-9-]+(?:;[A-Za-z0-9-]+)?$/.test(sst)) errors.SST = "SST 仅支持字母、数字、短横线和一个英文分号";
+  else if (sstParts.length > 2 || new Set(sstParts).size !== sstParts.length) errors.SST = "SST 最多填写 2 个且不能重复";
+  else if (hasDuplicateLicense(company, "SST", sst)) errors.SST = "该 SST 已被其他公司使用";
+  return errors;
 }
 
 function renderCompanyInvoiceOpenDrawer() {
@@ -4931,18 +4975,24 @@ function renderCompanyInvoiceOpenDrawer() {
   const company = currentCompany();
   if (!company || company.country !== "MY" || company.invoiceStatus === "opened") return;
   state.companyInvoiceOpenError = "";
-  state.companyInvoiceMissingLicenses = missingMalaysiaLicenses(company);
   if (!customer.productOpen) state.companyInvoiceOpenError = "customer-product";
   else if (!malaysiaIndustryMapping(company)) state.companyInvoiceOpenError = "industry-mapping";
-  else if (state.companyInvoiceMissingLicenses.length) state.companyInvoiceOpenError = "licenses";
+  const draft = state.companyInvoiceOpenDraft;
+  const fieldErrors = state.companyInvoiceOpenFieldErrors;
   const body = `
     <section class="company-open-section">
       <h3>公司及证照信息</h3>
       <dl class="review-list company-open-review">
         <div><dt>公司名称</dt><dd>${escapeHtml(company.legalName)}</dd></div>
         <div><dt>商业注册号码（BRN）</dt><dd>${escapeHtml(company.licenses.BRN || "-")}</dd></div>
-        <div><dt>税务识别号码（TIN）</dt><dd>${escapeHtml(company.licenses.TIN || "-")}</dd></div>
-        <div><dt>销售与服务税注册号码（SST）</dt><dd>${escapeHtml(company.licenses.SST || "-")}</dd></div>
+        <div class="company-open-editable-field">
+          <dt><label for="companyOpenTIN">税务识别号码（TIN）</label></dt>
+          <dd><input id="companyOpenTIN" class="${fieldErrors.TIN ? "field-error" : ""}" value="${escapeHtml(draft.TIN)}" placeholder="请输入税务识别号码（TIN）" autocomplete="off" /><span class="field-message">${escapeHtml(fieldErrors.TIN || "")}</span></dd>
+        </div>
+        <div class="company-open-editable-field">
+          <dt><label for="companyOpenSST">销售与服务税注册号码（SST）</label></dt>
+          <dd><input id="companyOpenSST" class="${fieldErrors.SST ? "field-error" : ""}" value="${escapeHtml(draft.SST)}" placeholder="请输入销售与服务税注册号码（SST）" autocomplete="off" /><span class="field-message">${escapeHtml(fieldErrors.SST || "")}</span></dd>
+        </div>
       </dl>
     </section>
     <section class="company-open-section company-open-authorization">
@@ -4972,7 +5022,11 @@ function openCompanyInvoice() {
   const company = currentCompany();
   if (!company || company.country !== "MY" || company.invoiceStatus === "opened") return;
   state.companyInvoiceOpenError = "";
-  state.companyInvoiceMissingLicenses = [];
+  state.companyInvoiceOpenDraft = {
+    TIN: company.licenses.TIN || "",
+    SST: company.licenses.SST || "",
+  };
+  state.companyInvoiceOpenFieldErrors = {};
   renderCompanyInvoiceOpenDrawer();
 }
 
@@ -4980,14 +5034,18 @@ function confirmCompanyOpen() {
   const customer = currentCustomer();
   const company = currentCompany();
   if (!company || company.country !== "MY") return;
-  const missing = missingMalaysiaLicenses(company);
+  const tin = (document.getElementById("companyOpenTIN")?.value || state.companyInvoiceOpenDraft.TIN).trim().toUpperCase();
+  const sst = (document.getElementById("companyOpenSST")?.value || state.companyInvoiceOpenDraft.SST).trim();
+  state.companyInvoiceOpenDraft = { TIN: tin, SST: sst };
+  state.companyInvoiceOpenFieldErrors = validateCompanyInvoiceOpenDraft(company, state.companyInvoiceOpenDraft);
   const mapping = malaysiaIndustryMapping(company);
-  if (!customer.productOpen || !mapping || missing.length) {
-    state.companyInvoiceOpenError = !customer.productOpen ? "customer-product" : !mapping ? "industry-mapping" : "licenses";
-    state.companyInvoiceMissingLicenses = missing;
+  if (!customer.productOpen || !mapping || Object.keys(state.companyInvoiceOpenFieldErrors).length) {
+    state.companyInvoiceOpenError = !customer.productOpen ? "customer-product" : !mapping ? "industry-mapping" : "";
     renderCompanyInvoiceOpenDrawer();
     return;
   }
+  company.licenses.TIN = tin;
+  company.licenses.SST = sst;
   company.invoiceStatus = "opened";
   company.invoiceMode = "MyInvois";
   company.taxpayerExists = true;
@@ -5855,6 +5913,25 @@ function saveRule() {
   showToast(existing ? "商品规则已更新" : "商品规则已新增");
 }
 
+function requestDeleteRule(ruleId) {
+  const rule = ensureBrandInvoiceConfig(currentBrand()).rules.find((item) => item.id === ruleId);
+  if (!rule) return;
+  state.modalContext = { type: "rule-delete", id: ruleId };
+  openModal({
+    title: "删除商品开票规则",
+    body: `<div class="notice warning"><span>确认删除商品大类“${escapeHtml(rule.category)}”的开票规则？删除后，相关商品将继续匹配兜底开票项目；无有效兜底时进入开票配置异常。</span></div>`,
+    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button danger" type="button" data-action="confirm-delete-rule">删除</button>`,
+  });
+}
+
+function confirmDeleteRule() {
+  const config = ensureBrandInvoiceConfig(currentBrand());
+  config.rules = config.rules.filter((item) => item.id !== state.modalContext?.id);
+  closeModal();
+  render();
+  showToast("商品开票规则已删除");
+}
+
 function openMalaysiaFallbackEditor(fallbackId = "") {
   const config = ensureBrandInvoiceConfig(currentBrand());
   const taxpayers = eligibleFallbackTaxpayers();
@@ -6166,7 +6243,7 @@ function resetInvoiceImportDraft() {
 }
 
 function openInvoiceImportRecords(kind) {
-  state.settingsImportKind = kind === "fallbacks" ? "fallbacks" : "rules";
+  state.settingsImportKind = ["rules", "fallbacks", "payments"].includes(kind) ? kind : "rules";
   resetInvoiceImportDraft();
   state.settingsView = "import-records";
   render();
@@ -6185,7 +6262,7 @@ function startInvoiceImportCheck() {
   state.settingsImportRemark = document.getElementById("invoiceImportRemark")?.value.trim() || "";
   const tasks = ensureInvoiceImportTasks(customer, brand);
   const task = {
-    id: uid(`IMP-${brand.country}-${state.settingsImportKind === "rules" ? "R" : "F"}`),
+    id: uid(`IMP-${brand.country}-${state.settingsImportKind === "rules" ? "R" : state.settingsImportKind === "payments" ? "P" : "F"}`),
     createdAt: nowText(),
     status: "checking",
     executable: 8,
@@ -6285,6 +6362,22 @@ function applyInvoiceImportSamples(brand) {
       });
     return;
   }
+  if (state.settingsImportKind === "payments") {
+    const samples = brand.country === "MY"
+      ? [
+          { code: "GIFT_CARD", name: "Gift Card" },
+          { code: "LOYALTY_POINTS", name: "Loyalty Points" },
+        ]
+      : [
+          { code: "GIFT_CARD", name: "礼品卡支付" },
+          { code: "LOYALTY_POINTS", name: "积分支付" },
+        ];
+    samples.slice().reverse().forEach((sample) => {
+      if (config.payments.some((payment) => payment.code.toLowerCase() === sample.code.toLowerCase())) return;
+      config.payments.unshift({ id: uid("PAY"), ...sample, updatedAt: nowText() });
+    });
+    return;
+  }
   const eligibleCompanies = customer.companies.filter(
     (company) =>
       company.country === brand.country &&
@@ -6375,12 +6468,36 @@ function savePayment() {
   }
   const config = ensureBrandInvoiceConfig(currentBrand());
   const existing = config.payments.find((item) => item.id === state.modalContext.id);
+  const duplicated = config.payments.find((item) => item.code.toLowerCase() === code.toLowerCase() && item.id !== state.modalContext.id);
+  if (duplicated) {
+    document.getElementById("paymentError").textContent = "当前品牌已存在相同支付方式编号";
+    return;
+  }
   const values = { code, name, updatedAt: nowText() };
   if (existing) Object.assign(existing, values);
   else config.payments.unshift({ id: uid("PAY"), ...values });
   closeModal();
   render();
   showToast(existing ? "不可开票支付方式已更新" : "不可开票支付方式已新增");
+}
+
+function requestDeletePayment(paymentId) {
+  const payment = ensureBrandInvoiceConfig(currentBrand()).payments.find((item) => item.id === paymentId);
+  if (!payment) return;
+  state.modalContext = { type: "payment-delete", id: paymentId };
+  openModal({
+    title: "删除不可开票支付方式",
+    body: `<div class="notice warning"><span>确认删除“${escapeHtml(payment.name)}（${escapeHtml(payment.code)}）”？删除后，该支付方式金额将重新计入零售订单可开票金额。</span></div>`,
+    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button danger" type="button" data-action="confirm-delete-payment">删除</button>`,
+  });
+}
+
+function confirmDeletePayment() {
+  const config = ensureBrandInvoiceConfig(currentBrand());
+  config.payments = config.payments.filter((item) => item.id !== state.modalContext?.id);
+  closeModal();
+  render();
+  showToast("不可开票支付方式已删除");
 }
 
 function readApplicationDraftFromDom() {
@@ -6583,7 +6700,6 @@ app.addEventListener("click", (event) => {
     state.companyCountryKeyword = document.getElementById("companyCountryFilterInput").value;
     state.companyRegistrationKeyword = document.getElementById("companyRegistrationInput").value.trim();
     state.companyTypeKeyword = document.getElementById("companyTypeInput").value;
-    state.companyInvoiceStatusKeyword = document.getElementById("companyInvoiceStatusInput").value;
     render();
   }
   if (action === "reset-companies") {
@@ -6591,7 +6707,6 @@ app.addEventListener("click", (event) => {
     state.companyCountryKeyword = "";
     state.companyRegistrationKeyword = "";
     state.companyTypeKeyword = "";
-    state.companyInvoiceStatusKeyword = "";
     render();
   }
   if (action === "search-brands") {
@@ -6614,7 +6729,6 @@ app.addEventListener("click", (event) => {
     state.companyBranchNameKeyword = "";
     state.companyBranchRegistrationKeyword = "";
     state.companyBranchTypeKeyword = "";
-    state.companyBranchInvoiceStatusKeyword = "";
     state.companyStoreBrandKeyword = "";
     state.companyStoreNameKeyword = "";
     state.companyStoreNoKeyword = "";
@@ -6631,7 +6745,6 @@ app.addEventListener("click", (event) => {
     state.companyBranchCountryKeyword = document.getElementById("companyBranchCountryFilterInput").value;
     state.companyBranchRegistrationKeyword = document.getElementById("companyBranchRegistrationInput").value.trim();
     state.companyBranchTypeKeyword = document.getElementById("companyBranchTypeInput").value;
-    state.companyBranchInvoiceStatusKeyword = document.getElementById("companyBranchInvoiceStatusInput").value;
     render();
   }
   if (action === "reset-company-branches") {
@@ -6639,7 +6752,6 @@ app.addEventListener("click", (event) => {
     state.companyBranchNameKeyword = "";
     state.companyBranchRegistrationKeyword = "";
     state.companyBranchTypeKeyword = "";
-    state.companyBranchInvoiceStatusKeyword = "";
     render();
   }
   if (action === "search-company-stores") {
@@ -6737,7 +6849,7 @@ app.addEventListener("click", (event) => {
   }
   if (action === "back-brand-invoice-settings" || action === "back-invoice-import-rule") {
     state.settingsView = "brand-detail";
-    state.settingsTab = state.settingsImportKind === "fallbacks" ? "fallback" : "rules";
+    state.settingsTab = state.settingsImportKind === "fallbacks" ? "fallback" : state.settingsImportKind === "payments" ? "payments" : "rules";
     resetInvoiceImportDraft();
     render();
   }
@@ -6818,9 +6930,11 @@ app.addEventListener("click", (event) => {
   if (action === "download-invoice-import-check-report") showToast("文件检查报告已下载");
   if (action === "download-invoice-import-execution-report") showToast("任务执行报告已下载");
   if (action === "open-store-invoice-company") openStoreInvoiceCompanyEditor(target.dataset.id);
+  if (action === "open-batch-store-invoice-company") openBatchStoreInvoiceCompanyEditor();
   if (action === "toggle-store-invoice") requestToggleStoreInvoice(target.dataset.id);
   if (action === "create-rule") openRuleEditor();
   if (action === "edit-rule") openRuleEditor(target.dataset.id);
+  if (action === "delete-rule") requestDeleteRule(target.dataset.id);
   if (action === "create-fallback") openFallbackEditor();
   if (action === "edit-fallback") openFallbackEditor(target.dataset.id);
   if (action === "delete-fallback") deleteFallback(target.dataset.id);
@@ -6829,6 +6943,7 @@ app.addEventListener("click", (event) => {
   if (action === "delete-brand-fallback") requestDeleteBrandFallback();
   if (action === "create-payment") openPaymentEditor();
   if (action === "edit-payment") openPaymentEditor(target.dataset.id);
+  if (action === "delete-payment") requestDeletePayment(target.dataset.id);
   if (action === "edit-application-section") editApplicationSection(target.dataset.section);
   if (action === "cancel-application-section") cancelApplicationSection(target.dataset.section);
   if (action === "save-application-section") saveApplicationSection(target.dataset.section);
@@ -6923,11 +7038,6 @@ modalRoot.addEventListener("click", (event) => {
   if (action === "save-customer") saveCustomer();
   if (action === "open-product-now") openProductNow();
   if (action === "save-company") saveCompany();
-  if (action === "edit-current-company") {
-    const id = state.currentCompanyId;
-    closeModal();
-    openCompanyEditor(id);
-  }
   if (action === "go-product-feature-from-company-open") {
     closeModal();
     state.view = "customer-detail";
@@ -6948,6 +7058,7 @@ modalRoot.addEventListener("click", (event) => {
   if (action === "confirm-company-store-picker") confirmCompanyStorePicker();
   if (action === "confirm-remove-company-store") confirmRemoveCompanyStore();
   if (action === "save-store-invoice-company") saveStoreInvoiceCompany();
+  if (action === "save-batch-store-invoice-company") saveBatchStoreInvoiceCompany();
   if (action === "confirm-toggle-store-invoice") confirmToggleStoreInvoice();
   if (action === "confirm-company-open") confirmCompanyOpen();
   if (action === "save-brand") saveBrand();
@@ -6961,12 +7072,14 @@ modalRoot.addEventListener("click", (event) => {
   if (action === "download-store-template") showToast("门店导入模板已下载");
   if (action === "confirm-brand-store-import") confirmBrandStoreImport();
   if (action === "save-rule") saveRule();
+  if (action === "confirm-delete-rule") confirmDeleteRule();
   if (action === "save-fallback") saveFallback();
   if (action === "confirm-delete-fallback") confirmDeleteFallback();
   if (action === "confirm-toggle-brand-fallback") confirmToggleBrandFallback();
   if (action === "save-brand-fallback") saveBrandFallback();
   if (action === "confirm-delete-brand-fallback") confirmDeleteBrandFallback();
   if (action === "save-payment") savePayment();
+  if (action === "confirm-delete-payment") confirmDeletePayment();
 });
 
 modalRoot.addEventListener("focusin", (event) => {
@@ -7009,6 +7122,11 @@ modalRoot.addEventListener("input", (event) => {
 });
 
 modalRoot.addEventListener("change", (event) => {
+  if (event.target.id === "batchStoreInvoiceSelectAll") {
+    document.querySelectorAll('input[name="batchStoreInvoiceStore"]').forEach((input) => {
+      input.checked = event.target.checked;
+    });
+  }
   if (event.target.id === "customerSales") {
     const sales = salesOptions.find((item) => item.name === event.target.value);
     state.customerDraft.salesName = event.target.value;
