@@ -1973,6 +1973,10 @@ input[readonly] {
   width: min(760px, 100vw);
 }
 
+.modal.drawer.store-invoice-company-drawer {
+  width: min(760px, 100vw);
+}
+
 .modal-foot-spacer {
   flex: 1;
 }
@@ -2709,48 +2713,90 @@ input[readonly] {
   display: block;
 }
 
-.batch-store-invoice-picker {
+.store-invoice-drawer-summary {
   display: grid;
-  gap: 12px;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: #f8f9fa;
 }
 
-.batch-store-invoice-picker-head {
+.store-invoice-drawer-summary span,
+.store-invoice-drawer-summary small,
+.store-invoice-company-table-head small {
+  color: var(--muted);
+}
+
+.store-invoice-company-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+}
+
+.store-invoice-company-filter .filter-actions {
+  align-self: end;
+  padding-bottom: 0;
+}
+
+.store-invoice-company-opened-only {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.store-invoice-company-opened-only input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.store-invoice-company-table-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 10px;
 }
 
-.batch-store-invoice-picker-head label,
-.batch-store-invoice-picker-list label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.batch-store-invoice-picker-list {
-  display: grid;
-  max-height: 320px;
-  overflow-y: auto;
+.store-invoice-company-table-scroll {
+  max-height: 360px;
   border: 1px solid var(--line);
 }
 
-.batch-store-invoice-picker-list label {
-  min-height: 44px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.batch-store-invoice-picker-list label:last-child {
-  border-bottom: 0;
-}
-
-.batch-store-invoice-picker-list span {
-  flex: 1;
-}
-
-.batch-store-invoice-picker-list small {
+.store-invoice-company-table tr.unavailable {
   color: var(--muted);
+  background: #fafafa;
+}
+
+.store-invoice-company-table tr.selected {
+  background: #f4f7ff;
+}
+
+.store-invoice-company-select-cell {
+  text-align: center;
+}
+
+.store-invoice-company-select-cell input {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 720px) {
+  .store-invoice-company-filter {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .store-invoice-company-opened-only {
+    grid-column: auto;
+  }
 }
 
 .company-open-authorization .notice {
