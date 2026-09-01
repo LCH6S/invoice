@@ -3491,7 +3491,7 @@ function renderStoreInvoiceSettingsContent(customer, brand) {
     <div class="table-toolbar"><h3>门店列表</h3></div>
     <div class="table-scroll">
       <table class="data-table store-invoice-settings-table">
-        <thead><tr><th>门店名称</th><th>门店编号</th><th>默认开票公司</th><th>开票税号</th><th>纳税人名称</th><th>开票状态</th><th>更新时间</th><th>操作</th></tr></thead>
+        <thead><tr><th>门店名称</th><th>门店编号</th><th>默认开票公司</th><th>开票税号</th><th>开票状态</th><th>更新时间</th><th>操作</th></tr></thead>
         <tbody>
           ${stores.length ? stores.map((store) => {
             const company = customer.companies.find((item) => item.id === store.invoiceCompanyId);
@@ -3503,11 +3503,11 @@ function renderStoreInvoiceSettingsContent(customer, brand) {
               <tr>
                 <td>${escapeHtml(store.name)}</td><td>${escapeHtml(store.storeNo)}</td>
                 <td>${escapeHtml(company?.legalName || "-")}</td><td>${escapeHtml(companyTaxNumber(company) || "-")}</td>
-                <td>${escapeHtml(company?.legalName || "-")}</td><td><span class="tag ${statusClass}">${statusLabel}</span></td>
+                <td><span class="tag ${statusClass}">${statusLabel}</span></td>
                 <td>${escapeHtml(store.updatedAt || store.createdAt || "-")}</td>
                 <td><span class="actions"><button class="button link" type="button" data-action="open-store-invoice-company" data-id="${store.id}">${hasConfiguredSubject && !hasSubject ? "重新设置" : hasSubject ? "变更主体" : "设置主体"}</button>${hasSubject ? `<button class="button link" type="button" data-action="toggle-store-invoice" data-id="${store.id}">${store.invoiceEnabled ? "禁用" : "开启"}</button>` : ""}</span></td>
               </tr>`;
-          }).join("") : `<tr><td class="empty-cell" colspan="8">暂无门店</td></tr>`}
+          }).join("") : `<tr><td class="empty-cell" colspan="7">暂无门店</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -3746,7 +3746,6 @@ function renderUnifiedRuleSettingsContent(customer, brand) {
           `
       }
     </section>
-    <p class="section-description">按品牌维度维护订单商品行的商品大类对应的开票税收分类编码。</p>
     <div class="filter-bar">
       <label class="field"><span>商品大类</span><input id="settingsRuleCategoryInput" value="${escapeHtml(state.settingsRuleCategoryKeyword)}" placeholder="请输入商品大类" /></label>
       <label class="field"><span>税收分类编码</span><input id="settingsRuleTaxCodeInput" value="${escapeHtml(state.settingsRuleTaxCodeKeyword)}" placeholder="请输入税收分类编码" /></label>
@@ -3755,6 +3754,7 @@ function renderUnifiedRuleSettingsContent(customer, brand) {
         <button class="button" type="button" data-action="reset-settings-rules">重置</button>
       </div>
     </div>
+    <p class="section-description">按品牌维度维护订单商品行的商品大类对应的开票税收分类编码。</p>
     <div class="table-toolbar actions-only">
       <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="rules">批量导入</button><button class="button primary" type="button" data-action="create-rule">新增规则</button></div>
     </div>
