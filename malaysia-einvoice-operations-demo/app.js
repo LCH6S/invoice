@@ -591,6 +591,7 @@ function demoStore({
   region,
   address,
   companyId = "",
+  invoiceCompanyId = companyId,
   createdAt,
   phone = "",
   remark = "",
@@ -615,6 +616,7 @@ function demoStore({
     phone,
     remark,
     companyId,
+    invoiceCompanyId,
     associationStatus: companyId ? "associated" : "unassociated",
     invoiceEnabled,
     updatedAt: createdAt,
@@ -655,6 +657,17 @@ function demoChinaInvoiceConfig({ category, alias, companyId = "", classificatio
           },
         ]
       : [],
+    fallbackEnabled: true,
+    brandFallback: {
+      itemName: alias,
+      classification,
+      taxShortName,
+      taxType: "VAT",
+      taxTypeName: "增值税",
+      taxRate,
+      preferentialPolicy: "无",
+      updatedAt: "2026-09-01 10:00",
+    },
     payments: [],
     application: {
       qrDays: "30",
@@ -664,7 +677,10 @@ function demoChinaInvoiceConfig({ category, alias, companyId = "", classificatio
       pageStyle: "经典",
       theme: "black-gold",
       note: "请确认订单信息后提交开票申请。",
+      specialInvoiceEnabled: false,
+      discountMode: "separate",
     },
+    callbacks: { status: "", detail: "" },
   };
 }
 
@@ -706,8 +722,25 @@ function demoMalaysiaInvoiceConfig({ category, alias, companyId = "", classifica
           },
         ]
       : [],
+    fallbackEnabled: true,
+    brandFallback: {
+      itemName: alias,
+      classification,
+      classificationName: classificationItem?.name || "",
+      taxShortName: classificationItem?.name || "",
+      taxType,
+      taxTypeName: taxTypeItem?.name || "",
+      taxRate,
+      preferentialPolicy: "无",
+      updatedAt: "2026-09-01 10:00",
+    },
     payments: [],
-    application: {},
+    application: {
+      pageStyle: "经典",
+      theme: "black-gold",
+      note: "Please review your order and provide buyer details for the e-Invoice request.",
+    },
+    callbacks: { status: "", detail: "" },
   };
 }
 
@@ -1177,6 +1210,27 @@ function additionalDemoCustomers() {
 enrichInitialDemoCustomers();
 initialCustomers.push(...additionalDemoCustomers());
 
+function normalizeCountryDemoData(customers) {
+  customers.forEach((customer) => {
+    customer.companies.forEach((company, index) => {
+      if (company.invoiceStatus === "opened" && !company.invoiceMode) {
+        company.invoiceMode = company.country === "MY" ? "MyInvois" : ["乐企联用", "RPA", "乐企自用"][index % 3];
+      }
+    });
+    const companyById = new Map(customer.companies.map((company) => [company.id, company]));
+    customer.brands.forEach((brand) => {
+      brand.stores.forEach((store) => {
+        const candidate = companyById.get(store.invoiceCompanyId || store.companyId);
+        const validTaxNo = brand.country === "MY" ? candidate?.licenses?.TIN : candidate?.licenses?.USCC;
+        store.invoiceCompanyId = candidate && candidate.country === brand.country && candidate.invoiceStatus === "opened" && candidate.taxpayerExists && validTaxNo ? candidate.id : "";
+        if (store.id === "ST-MY-302") store.invoiceCompanyId = "CO-MY-3001";
+      });
+    });
+  });
+}
+
+normalizeCountryDemoData(initialCustomers);
+
 const state = {
   customers: structuredClone(initialCustomers),
   view: "customer-list",
@@ -1185,9 +1239,8 @@ const state = {
   currentBrandId: "",
   customerTab: "basic",
   companyTab: "master",
-  companyFunctionView: "list",
   brandTab: "info",
-  settingsView: "brand-list",
+  settingsView: "brand-detail",
   settingsTab: "stores",
   settingsImportKind: "rules",
   settingsImportStage: "upload",
@@ -1204,6 +1257,7 @@ const state = {
   settingsFallbackTaxNoKeyword: "",
   settingsFallbackTaxCodeKeyword: "",
   itemNameSourceEditing: false,
+  developmentEditing: false,
   applicationEditMode: {
     qr: false,
     selfReissue: false,
@@ -2151,8 +2205,10 @@ function renderCustomerDetail() {
     <section class="panel legacy-customer-detail">
       <div class="tabs" role="tablist" aria-label="客户详情">
         ${customerTabButton("basic", "客户信息")}
+        ${customerTabButton("brands", "品牌信息")}
+        ${customerTabButton("merchants", "商户信息")}
+        ${customerTabButton("onboarding", "入网设置")}
         ${customerTabButton("companies", "公司列表")}
-        ${customerTabButton("brands", "品牌列表")}
         ${customerTabButton("products", "产品功能")}
       </div>
       ${renderCustomerTab(customer)}
@@ -2202,6 +2258,7 @@ function renderCustomerTab(customer) {
   }
   if (state.customerTab === "companies") return renderCompanyList(customer);
   if (state.customerTab === "brands") return renderBrandList(customer);
+  if (["merchants", "onboarding"].includes(state.customerTab)) return `<div class="tab-panel brand-empty-tab" aria-label="${escapeHtml(state.customerTab)}"></div>`;
   return renderProductFeature(customer);
 }
 
@@ -2298,7 +2355,7 @@ function renderCompanyCollection(customer, options) {
                     <td class="actions">
                       <button class="button link" type="button" data-action="open-company-detail" data-id="${company.id}">详情</button>
                       ${
-                        showInvoiceOpenAction && company.country === "MY"
+                        showInvoiceOpenAction && company.country === "MY" && company.invoiceStatus !== "opened"
                           ? `<button class="button link" type="button" data-action="open-company-invoice-from-list" data-id="${company.id}">开通</button>`
                           : ""
                       }
@@ -2395,7 +2452,7 @@ function renderProductFeature(customer) {
             <p>聚合不同开票服务商能力，覆盖线上线下、多端场景。</p>
             ${
               customer.productOpen
-                ? `<button class="button primary" type="button" data-action="open-einvoice-settings">设置</button>`
+                ? ""
                 : `<button class="button primary" type="button" data-action="confirm-product-open">开通</button>`
             }
           </div>
@@ -2427,7 +2484,7 @@ function renderCompanyDetail() {
         ${companyTabButton("master", "公司信息")}
         ${companyTabButton("stores", "门店管理")}
         ${(company.type || "Head") === "Head" ? companyTabButton("branches", "分公司管理") : ""}
-        ${companyTabButton("function", "功能状态")}
+        ${companyTabButton("function", "电子发票业务摘要")}
       </div>
       ${renderCompanyTab(customer, company)}
     </section>
@@ -2711,7 +2768,7 @@ function openRemoveCompanyStoreConfirm(storeId) {
   state.modalContext = "company-store-remove";
   openModal({
     title: "移除管理门店",
-    body: `<div class="notice warning"><span>确定将“${escapeHtml(record.store.name)}”从当前公司的管理门店中移除吗？移除后，该门店将不再通过当前公司作为开票主体。</span></div>`,
+    body: `<div class="notice warning"><span>确定将“${escapeHtml(record.store.name)}”从当前公司的管理门店中移除吗？本操作只调整组织管理关系，不会自动修改门店默认开票公司。</span></div>`,
     actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button danger" type="button" data-action="confirm-remove-company-store">确定移除</button>`,
   });
 }
@@ -2724,7 +2781,6 @@ function confirmRemoveCompanyStore() {
   if (!record) return;
   record.store.companyId = "";
   record.store.associationStatus = "unassociated";
-  record.store.invoiceEnabled = false;
   closeModal();
   render();
   showToast("门店关联已解除");
@@ -2750,53 +2806,32 @@ function renderCompanyBranches(customer, company) {
 
 function renderCompanyFunction(customer, company) {
   const status = invoiceStatuses[company.invoiceStatus] || invoiceStatuses.unopened;
-  if (state.companyFunctionView === "list") {
-    const chinaDescriptions = {
-      unopened: "尚未开通发票功能",
-      opening: "发票功能正在开通中",
-      opened: "发票功能已开通",
-      failed: "发票功能开通失败",
-    };
-    const malaysiaDescription = company.invoiceStatus === "opened" ? "发票功能已开通" : "尚未开通发票功能";
-    return `
-      <div class="tab-panel company-function-list">
-        <div class="section-heading"><h2>功能列表</h2></div>
-        <button class="company-function-card" type="button" data-action="open-company-invoice-feature">
-          <span class="company-function-icon"><img src="./assets/receipt-text.svg" alt="" /></span>
-          <span class="company-function-copy"><strong>发票</strong><small>${company.country === "CN" ? chinaDescriptions[company.invoiceStatus] || chinaDescriptions.unopened : malaysiaDescription}</small></span>
-          <span class="tag ${status.className}">${status.label}</span>
-          <img class="company-function-arrow" src="./assets/chevron-right.svg" alt="" />
-        </button>
-      </div>
-    `;
-  }
   const chinaReadonly = company.country === "CN";
-  let action = "";
-  let notice = chinaReadonly
-    ? `<div class="notice"><span>中国公司的发票功能由销售人员在 CRM 发起开通，运营管理平台仅展示状态。</span></div>`
+  const taxNo = company.country === "MY" ? company.licenses.TIN : company.licenses.USCC;
+  const mode = company.invoiceStatus === "opened" ? company.invoiceMode || (chinaReadonly ? "乐企联用" : "MyInvois") : "-";
+  const taxpayerName = company.taxpayerExists ? company.legalName : "-";
+  const action = !chinaReadonly && company.invoiceStatus !== "opened" && customer.productOpen
+    ? `<button class="button primary" type="button" data-action="open-company-invoice">开通</button>`
     : "";
-
-  if (!chinaReadonly && company.invoiceStatus === "opened") {
-    notice = `<div class="notice"><span>该公司电子发票功能已开通，纳税人主体已建立。</span></div>`;
-  } else if (!chinaReadonly && !customer.productOpen) {
-    notice = `<div class="notice warning"><span>请先为客户开通电子发票产品，再为具体公司开通发票功能。</span><button class="button link" type="button" data-action="go-product-feature">前往产品功能</button></div>`;
-  } else if (!chinaReadonly) {
-    action = `<button class="button primary" type="button" data-action="open-company-invoice">开通电子发票</button>`;
-  }
+  const notice = chinaReadonly
+    ? `<div class="notice"><span>中国公司由销售人员在 CRM 发票开通工作台办理，运营端仅展示同步结果。</span></div>`
+    : !customer.productOpen
+      ? `<div class="notice warning"><span>请先为客户开通电子发票产品。</span><button class="button link" type="button" data-action="go-product-feature">前往产品功能</button></div>`
+      : "";
 
   return `
-    <div class="tab-panel">
-      <button class="button link function-back" type="button" data-action="back-company-function-list">返回功能列表</button>
+    <div class="tab-panel company-invoice-summary">
       ${notice}
       <div class="panel-head" style="padding:0 0 18px">
-        <div><h2>发票</h2><p>公司级发票功能与纳税人主体状态。</p></div>
+        <div><h2>电子发票业务摘要</h2><p>查看当前公司的纳税人和开票能力。</p></div>
         ${action}
       </div>
       <dl class="info-grid">
-        <div><dt>功能状态</dt><dd><span class="tag ${status.className}">${status.label}</span></dd></div>
-        <div><dt>纳税人主体</dt><dd>${company.taxpayerExists ? "已建立" : "未建立"}</dd></div>
-        <div><dt>纳税人唯一身份</dt><dd>${company.taxpayerExists ? escapeHtml(company.licenses.TIN || company.licenses.USCC) : "-"}</dd></div>
-        <div><dt>开通时间</dt><dd>${escapeHtml(company.openedAt || "-")}</dd></div>
+        <div><dt>纳税人名称</dt><dd>${escapeHtml(taxpayerName)}</dd></div>
+        <div><dt>税务识别号码</dt><dd>${escapeHtml(taxNo || "-")}</dd></div>
+        <div><dt>电子发票功能状态</dt><dd><span class="tag ${status.className}">${status.label}</span></dd></div>
+        <div><dt>当前开票模式 / 方案</dt><dd>${escapeHtml(mode)}</dd></div>
+        <div><dt>最近更新时间</dt><dd>${escapeHtml(company.openedAt || company.createdAt || "-")}</dd></div>
       </dl>
     </div>
   `;
@@ -2888,10 +2923,30 @@ function renderBrandTab(customer, brand) {
       </div>
     `;
   }
+  if (state.brandTab === "products") return renderBrandProductManagement(customer, brand);
   if (state.brandTab !== "stores") {
     return `<div class="tab-panel brand-empty-tab" aria-label="${escapeHtml(state.brandTab)}"></div>`;
   }
   return renderBrandStoreManagement(brand);
+}
+
+function renderBrandProductManagement(customer, brand) {
+  const opened = customer.productOpen;
+  return `
+    <div class="tab-panel brand-product-management">
+      <div class="product-grid single">
+        <article class="product-card brand-invoice-product-card">
+          <div class="product-card-head">
+            <div><h3>零售订单开票</h3><p>品牌门店零售场景开票功能设置</p></div>
+            <span class="tag ${opened ? "success" : ""}">${opened ? "已开通" : "未开通"}</span>
+          </div>
+          <div class="product-card-body brand-product-card-body">
+            ${opened ? `<button class="button primary" type="button" data-action="open-brand-invoice-settings" data-id="${brand.id}">设置</button>` : `<p class="muted">集团未开通电子发票功能。</p>`}
+          </div>
+        </article>
+      </div>
+    </div>
+  `;
 }
 
 function ensureBrandLogoSets(brand) {
@@ -3016,49 +3071,48 @@ function renderBrandStoreManagement(brand) {
 
 function renderEinvoiceSettings() {
   const customer = currentCustomer();
+  const brand = currentBrand();
   if (!customer.productOpen) {
-    state.view = "customer-detail";
-    state.customerTab = "products";
+    state.view = "brand-detail";
+    state.brandTab = "products";
     render();
     showToast("请先开通客户电子发票产品");
     return;
   }
-  const brand = state.settingsView === "brand-list" ? null : currentBrand();
+  if (!brand) {
+    state.view = "customer-detail";
+    state.customerTab = "brands";
+    render();
+    return;
+  }
   const importLabel = brand ? invoiceImportRuleLabel(brand, state.settingsImportKind) : "";
-  const detailBreadcrumb = brand
-    ? `
-        <button type="button" data-action="back-brand-settings-list">电子发票设置</button>
-        <span>/</span>
-        <button type="button" data-action="back-brand-invoice-settings">${escapeHtml(brand.name)}品牌开票设置</button>
-        ${
-          state.settingsView === "import-records" || state.settingsView === "import-flow"
-            ? `
-              <span>/</span>
-              <button type="button" data-action="back-invoice-import-rule">${escapeHtml(importLabel)}</button>
-              <span>/</span>
-              ${
-                state.settingsView === "import-records"
-                  ? "<strong>导入记录</strong>"
-                  : `
-                    <button type="button" data-action="back-invoice-import-records">导入记录</button>
-                    <span>/</span>
-                    <strong>导入任务</strong>
-                  `
-              }
-            `
-            : ""
-        }
-      `
-    : "<strong>电子发票设置</strong>";
+  const detailBreadcrumb = `
+    <button type="button" data-action="back-brand-settings-list">品牌详情</button>
+    <span>/</span>
+    <button type="button" data-action="back-brand-settings-list">产品管理</button>
+    <span>/</span>
+    ${state.settingsView === "brand-detail" ? `<strong>零售订单开票设置</strong>` : `<button type="button" data-action="back-brand-invoice-settings">零售订单开票设置</button>`}
+    ${
+      state.settingsView === "import-records" || state.settingsView === "import-flow"
+        ? `
+          <span>/</span>
+          <button type="button" data-action="back-invoice-import-rule">${escapeHtml(importLabel)}</button>
+          <span>/</span>
+          ${state.settingsView === "import-records" ? "<strong>导入记录</strong>" : `<button type="button" data-action="back-invoice-import-records">导入记录</button><span>/</span><strong>导入任务</strong>`}
+        `
+        : ""
+    }
+  `;
   app.innerHTML = `
     <div class="breadcrumb einvoice-settings-breadcrumb">
       <button type="button" data-action="back-customer-list">客户列表</button>
       <span>/</span>
-      <button type="button" data-action="back-customer-detail" data-tab="products">客户详情</button>
+      <button type="button" data-action="back-customer-detail" data-tab="brands">客户详情</button>
       <span>/</span>
       ${detailBreadcrumb}
     </div>
     <section class="panel legacy-customer-detail einvoice-settings-page">
+      <div class="page-header brand-invoice-settings-title"><div><h1>${escapeHtml(brand.name)} 零售订单开票设置</h1></div></div>
       ${
         state.settingsView === "brand-detail"
           ? renderBrandInvoiceSettings(customer)
@@ -3066,12 +3120,7 @@ function renderEinvoiceSettings() {
             ? renderInvoiceImportRecords(customer, brand)
             : state.settingsView === "import-flow"
               ? renderInvoiceImportFlow(customer, brand)
-              : `
-            <nav class="detail-tabs single-tab" aria-label="客户电子发票设置">
-              <button class="active" type="button">品牌开票设置</button>
-            </nav>
-            ${renderInvoiceBrandList(customer)}
-          `
+              : renderBrandInvoiceSettings(customer)
       }
     </section>
   `;
@@ -3383,39 +3432,179 @@ function renderInvoiceImportStage(customer, brand, task) {
 function renderBrandInvoiceSettings(customer) {
   const brand = currentBrand();
   if (!brand) {
-    state.settingsView = "brand-list";
-    return renderInvoiceBrandList(customer);
+    return emptyState("暂无品牌", "请先在客户下创建品牌");
   }
-  ensureBrandInvoiceConfig(brand);
-  const sharedContent =
-    state.settingsTab === "rules"
+  const config = ensureBrandInvoiceConfig(brand);
+  const content = state.settingsTab === "stores"
+    ? renderStoreInvoiceSettingsContent(customer, brand)
+    : state.settingsTab === "rules"
       ? renderUnifiedRuleSettingsContent(customer, brand)
       : state.settingsTab === "fallback"
         ? renderUnifiedFallbackSettingsContent(customer, brand)
         : state.settingsTab === "payments"
           ? renderPaymentSettingsContent(brand)
-          : "";
+          : state.settingsTab === "function"
+            ? renderChinaFunctionSettings(brand, config.application)
+            : state.settingsTab === "development"
+              ? renderDevelopmentSettings(config.callbacks)
+              : renderInvoiceApplicationPageSettings(brand, config.application);
   if (brand.country === "MY") {
     return `
       <nav class="brand-config-tabs" aria-label="马来西亚品牌开票设置">
         ${settingsNavButton("stores", "门店开票设置")}
         ${settingsNavButton("rules", "商品开票匹配规则")}
-        ${settingsNavButton("fallback", "税号兜底开票项目配置")}
+        ${settingsNavButton("fallback", "兜底开票项目设置")}
         ${settingsNavButton("payments", "不可开票支付方式")}
+        ${settingsNavButton("application", "开票申请页设置")}
       </nav>
-      <div class="brand-settings-content">${sharedContent || renderMalaysiaSettingsContent(customer, brand)}</div>
+      <div class="brand-settings-content">${content}</div>
     `;
   }
   return `
     <nav class="brand-config-tabs" aria-label="品牌开票设置">
       ${settingsNavButton("stores", "门店开票设置")}
       ${settingsNavButton("rules", "商品开票匹配规则")}
-      ${settingsNavButton("fallback", "税号兜底开票项目配置")}
+      ${settingsNavButton("fallback", "兜底开票项目设置")}
       ${settingsNavButton("payments", "不可开票支付方式")}
-      ${settingsNavButton("application", "开票入口与申请页设置")}
+      ${settingsNavButton("function", "开票功能设置")}
+      ${settingsNavButton("application", "开票申请页设置")}
+      ${settingsNavButton("development", "开发设置")}
     </nav>
-    <div class="brand-settings-content">${sharedContent || renderChinaSettingsContent(customer, brand)}</div>
+    <div class="brand-settings-content">${content}</div>
   `;
+}
+
+function renderStoreInvoiceSettingsContent(customer, brand) {
+  const nameKeyword = state.settingsStoreNameKeyword.toLowerCase();
+  const numberKeyword = state.settingsStoreNoKeyword.toLowerCase();
+  const stores = brand.stores.filter(
+    (store) =>
+      (!nameKeyword || store.name.toLowerCase().includes(nameKeyword)) &&
+      (!numberKeyword || store.storeNo.toLowerCase().includes(numberKeyword)),
+  );
+  return `
+    <div class="filter-bar compact-filter">
+      <label class="field"><span>门店名称</span><input id="settingsStoreNameInput" value="${escapeHtml(state.settingsStoreNameKeyword)}" placeholder="请输入门店名称" /></label>
+      <label class="field"><span>门店编号</span><input id="settingsStoreNoInput" value="${escapeHtml(state.settingsStoreNoKeyword)}" placeholder="请输入门店编号" /></label>
+      <div class="filter-actions"><button class="button primary" type="button" data-action="search-settings-stores">查询</button><button class="button" type="button" data-action="reset-settings-stores">重置</button></div>
+    </div>
+    <div class="table-toolbar"><h3>门店列表</h3></div>
+    <div class="table-scroll">
+      <table class="data-table store-invoice-settings-table">
+        <thead><tr><th>门店名称</th><th>门店编号</th><th>默认开票公司</th><th>开票税号</th><th>纳税人名称</th><th>开票状态</th><th>更新时间</th><th>操作</th></tr></thead>
+        <tbody>
+          ${stores.length ? stores.map((store) => {
+            const company = customer.companies.find((item) => item.id === store.invoiceCompanyId);
+            const hasConfiguredSubject = Boolean(store.invoiceCompanyId);
+            const hasSubject = eligibleInvoiceCompanies(customer, brand).some((item) => item.id === store.invoiceCompanyId);
+            const statusLabel = hasConfiguredSubject && !hasSubject ? "配置失效" : !hasSubject ? "未设置" : store.invoiceEnabled ? "可开票" : "不可开票";
+            const statusClass = hasConfiguredSubject && !hasSubject ? "danger" : !hasSubject ? "warning" : store.invoiceEnabled ? "success" : "";
+            return `
+              <tr>
+                <td>${escapeHtml(store.name)}</td><td>${escapeHtml(store.storeNo)}</td>
+                <td>${escapeHtml(company?.legalName || "-")}</td><td>${escapeHtml(companyTaxNumber(company) || "-")}</td>
+                <td>${escapeHtml(company?.legalName || "-")}</td><td><span class="tag ${statusClass}">${statusLabel}</span></td>
+                <td>${escapeHtml(store.updatedAt || store.createdAt || "-")}</td>
+                <td><span class="actions"><button class="button link" type="button" data-action="open-store-invoice-company" data-id="${store.id}">${hasConfiguredSubject && !hasSubject ? "重新设置" : hasSubject ? "变更主体" : "设置主体"}</button>${hasSubject ? `<button class="button link" type="button" data-action="toggle-store-invoice" data-id="${store.id}">${store.invoiceEnabled ? "禁用" : "开启"}</button>` : ""}</span></td>
+              </tr>`;
+          }).join("") : `<tr><td class="empty-cell" colspan="8">暂无门店</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function eligibleInvoiceCompanies(customer, brand) {
+  return customer.companies.filter(
+    (company) =>
+      company.country === brand.country &&
+      company.invoiceStatus === "opened" &&
+      company.taxpayerExists &&
+      Boolean(companyTaxNumber(company)),
+  );
+}
+
+function openStoreInvoiceCompanyEditor(storeId) {
+  const customer = currentCustomer();
+  const brand = currentBrand();
+  const store = brand.stores.find((item) => item.id === storeId);
+  if (!store) return;
+  const companies = eligibleInvoiceCompanies(customer, brand);
+  state.modalContext = { type: "store-invoice-company", storeId };
+  openModal({
+    title: store.invoiceCompanyId ? "变更默认开票公司" : "设置默认开票公司",
+    drawer: true,
+    body: `<div class="form-grid"><label class="field required"><span>门店</span><input value="${escapeHtml(store.name)}" readonly /></label><label class="field required"><span>默认开票公司</span><select id="storeInvoiceCompany"><option value="">请选择</option>${companies.map((company) => `<option value="${company.id}" ${store.invoiceCompanyId === company.id ? "selected" : ""}>${escapeHtml(company.legalName)} · ${escapeHtml(companyTaxNumber(company))}</option>`).join("")}</select><small>只能选择当前客户下、与品牌同国且已开通电子发票的公司。</small></label><div class="field-message full" id="storeInvoiceCompanyError"></div></div>`,
+    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="save-store-invoice-company">保存</button>`,
+  });
+}
+
+function saveStoreInvoiceCompany() {
+  const brand = currentBrand();
+  const store = brand.stores.find((item) => item.id === state.modalContext?.storeId);
+  const companyId = document.getElementById("storeInvoiceCompany")?.value || "";
+  const company = eligibleInvoiceCompanies(currentCustomer(), brand).find((item) => item.id === companyId);
+  if (!store || !company) {
+    const error = document.getElementById("storeInvoiceCompanyError");
+    if (error) error.textContent = "请选择有效的默认开票公司";
+    return;
+  }
+  const firstSetup = !store.invoiceCompanyId;
+  store.invoiceCompanyId = company.id;
+  if (firstSetup) store.invoiceEnabled = true;
+  store.updatedAt = nowText();
+  closeModal();
+  render();
+  showToast(firstSetup ? "默认开票公司已设置，门店开票已开启" : "默认开票公司已更新");
+}
+
+function requestToggleStoreInvoice(storeId) {
+  const brand = currentBrand();
+  const store = brand.stores.find((item) => item.id === storeId);
+  const company = eligibleInvoiceCompanies(currentCustomer(), brand).find((item) => item.id === store?.invoiceCompanyId);
+  if (!store || !company) {
+    showToast(store?.invoiceCompanyId ? "当前默认开票主体已失效，请重新设置" : "请先设置默认开票公司");
+    return;
+  }
+  state.modalContext = { type: "toggle-store-invoice", storeId };
+  openModal({
+    title: store.invoiceEnabled ? "禁用门店开票" : "开启门店开票",
+    body: `<div class="notice warning"><span>确认${store.invoiceEnabled ? "禁用" : "开启"}“${escapeHtml(store.name)}”的零售订单开票功能？</span></div>`,
+    actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button primary" type="button" data-action="confirm-toggle-store-invoice">确认</button>`,
+  });
+}
+
+function confirmToggleStoreInvoice() {
+  const brand = currentBrand();
+  const store = brand.stores.find((item) => item.id === state.modalContext?.storeId);
+  const company = eligibleInvoiceCompanies(currentCustomer(), brand).find((item) => item.id === store?.invoiceCompanyId);
+  if (!store || !company) {
+    closeModal();
+    showToast("当前默认开票主体已失效，请重新设置");
+    return;
+  }
+  store.invoiceEnabled = !store.invoiceEnabled;
+  store.updatedAt = nowText();
+  closeModal();
+  render();
+  showToast(store.invoiceEnabled ? "门店开票已开启" : "门店开票已禁用");
+}
+
+function renderChinaFunctionSettings(brand, application) {
+  const draft = applicationDraftFor(brand, application);
+  const qrModel = state.applicationEditMode.qr ? draft : application;
+  const reissueModel = state.applicationEditMode.selfReissue ? draft : application;
+  return `
+    <div class="application-settings-stack">
+      <section class="application-setting-block"><div class="application-setting-head"><h2>开票二维码有效期</h2><div class="application-setting-actions">${state.applicationEditMode.qr ? `<button class="button" data-action="cancel-application-section" data-section="qr">取消</button><button class="button primary" data-action="save-application-section" data-section="qr">保存</button>` : `<button class="button" data-action="edit-application-section" data-section="qr">编辑</button>`}</div></div>${state.applicationEditMode.qr ? `<label class="application-inline-field"><strong>小票二维码有效期</strong><span class="application-input-affix"><input id="applicationQrDays" type="number" min="1" value="${escapeHtml(qrModel.qrDays)}" /><em>天</em></span></label>` : `<dl class="application-detail-list compact"><div><dt>小票二维码有效期</dt><dd>${escapeHtml(application.qrDays)} 天</dd></div></dl>`}${state.applicationErrors.qr ? `<p class="application-field-error">${escapeHtml(state.applicationErrors.qr)}</p>` : ""}</section>
+      <section class="application-setting-block"><div class="application-setting-head"><h2>自助换开</h2><div class="application-setting-actions">${state.applicationEditMode.selfReissue ? `<button class="button" data-action="cancel-application-section" data-section="selfReissue">取消</button><button class="button primary" data-action="save-application-section" data-section="selfReissue">保存</button>` : `<button class="button" data-action="edit-application-section" data-section="selfReissue">编辑</button>`}</div></div>${state.applicationEditMode.selfReissue ? `<label class="application-switch-row"><span><strong>允许消费者自助换开</strong></span><span class="application-switch"><input id="applicationSelfReissueEnabled" type="checkbox" ${reissueModel.selfReissueEnabled ? "checked" : ""} /><i></i></span></label>${reissueModel.selfReissueEnabled ? `<div class="application-reissue-fields"><label><strong>每张发票最多换开</strong><span><input id="applicationSelfReissueMaxCount" type="number" min="1" value="${escapeHtml(reissueModel.selfReissueMaxCount)}" /> 次</span></label><label><strong>可换开时间范围</strong><span><input id="applicationSelfReissueValidDays" type="number" min="1" value="${escapeHtml(reissueModel.selfReissueValidDays)}" /> 天</span></label></div>` : ""}` : `<dl class="application-detail-list compact"><div><dt>自助换开</dt><dd>${application.selfReissueEnabled ? "已开启" : "已关闭"}</dd></div></dl>`}${state.applicationErrors.selfReissue ? `<p class="application-field-error">${escapeHtml(state.applicationErrors.selfReissue)}</p>` : ""}</section>
+      <section class="application-setting-block"><div class="application-setting-head"><h2>自助申请专票</h2><button class="button" type="button" data-action="toggle-special-invoice">${application.specialInvoiceEnabled ? "关闭" : "开启"}</button></div><dl class="application-detail-list compact"><div><dt>当前状态</dt><dd>${application.specialInvoiceEnabled ? "已开启" : "已关闭"}</dd></div></dl></section>
+      <section class="application-setting-block"><div class="application-setting-head"><h2>商品销售折扣金额开票方式</h2></div><div class="discount-mode-options"><button class="button ${application.discountMode === "separate" ? "primary" : ""}" data-action="set-discount-mode" data-mode="separate">商品行与折扣行分开开具</button><button class="button ${application.discountMode === "net" ? "primary" : ""}" data-action="set-discount-mode" data-mode="net">按折扣后金额直接开票</button></div></section>
+    </div>`;
+}
+
+function renderDevelopmentSettings(callbacks) {
+  return `<section class="application-setting-block development-settings"><div class="application-setting-head"><div><h2>商户回调地址设置</h2><p>按品牌维护开票结果回调。</p></div><div>${state.developmentEditing ? `<button class="button" data-action="cancel-development-settings">取消</button><button class="button primary" data-action="save-development-settings">保存</button>` : `<button class="button" data-action="edit-development-settings">编辑</button>`}</div></div>${state.developmentEditing ? `<div class="form-grid"><label class="field"><span>开票状态回调</span><input id="callbackStatus" value="${escapeHtml(callbacks.status || "")}" placeholder="https://" /></label><label class="field"><span>开票状态和票张信息回调</span><input id="callbackDetail" value="${escapeHtml(callbacks.detail || "")}" placeholder="https://" /></label><div class="field-message full" id="callbackError"></div></div>` : `<dl class="application-detail-list"><div><dt>开票状态回调</dt><dd>${escapeHtml(callbacks.status || "未设置")}</dd></div><div><dt>开票状态和票张信息回调</dt><dd>${escapeHtml(callbacks.detail || "未设置")}</dd></div></dl>`}</section>`;
 }
 
 function ensureBrandInvoiceConfig(brand) {
@@ -3423,8 +3612,10 @@ function ensureBrandInvoiceConfig(brand) {
   brand.config.itemNameSource ||= "order-item";
   brand.config.rules ||= [];
   brand.config.fallbacks ||= [];
+  brand.config.fallbackEnabled ??= Boolean(brand.config.brandFallback || brand.config.fallbacks.length);
   brand.config.payments ||= [];
   brand.config.application ||= {};
+  brand.config.callbacks ||= { status: "", detail: "" };
   const application = brand.config.application;
   application.qrDays ||= "30";
   application.selfReissueEnabled ??= true;
@@ -3432,6 +3623,9 @@ function ensureBrandInvoiceConfig(brand) {
   application.selfReissueValidDays ||= "180";
   application.pageStyle ||= "经典";
   application.theme ||= "black-gold";
+  if (!["black-gold", "black-white", "red-white"].includes(application.theme)) application.theme = "black-gold";
+  application.specialInvoiceEnabled ??= false;
+  application.discountMode ||= "separate";
   application.note ||= "请确认订单信息后提交开票申请。";
   application.noteHtml ||= application.note
     .split(/\n+/)
@@ -3443,6 +3637,8 @@ function ensureBrandInvoiceConfig(brand) {
     fileName: "",
     dataUrl: "",
   };
+  application.logoSchemeId ||= ensureBrandLogoSets(brand).find((scheme) => scheme.isDefault)?.id || "";
+  application.logo.schemeId ||= application.logoSchemeId;
   brand.config.rules.forEach((rule) => {
     rule.preferentialPolicy = rule.preferentialPolicy === "否" ? "无" : rule.preferentialPolicy || "无";
     rule.specifiedCompanyId ||= "";
@@ -3479,6 +3675,22 @@ function ensureBrandInvoiceConfig(brand) {
     }
     fallback.updatedAt ||= "2026-07-28 10:00";
   });
+  if (!Object.prototype.hasOwnProperty.call(brand.config, "brandFallback")) {
+    const sample = brand.config.fallbacks[0];
+    brand.config.brandFallback = sample
+      ? {
+          itemName: sample.itemName,
+          classification: sample.classification,
+          taxShortName: sample.taxShortName || sample.classificationName || "",
+          classificationName: sample.classificationName || sample.taxShortName || "",
+          taxType: sample.taxType || defaultTaxTypeCode(brand),
+          taxTypeName: sample.taxTypeName || taxTypeNameForBrand(brand, sample.taxType || defaultTaxTypeCode(brand)),
+          taxRate: sample.taxRate,
+          preferentialPolicy: sample.preferentialPolicy || "无",
+          updatedAt: sample.updatedAt || nowText(),
+        }
+      : null;
+  }
   return brand.config;
 }
 
@@ -3588,54 +3800,32 @@ function renderUnifiedFallbackSettingsContent(customer, brand) {
     return (!taxNoKeyword || taxNo.toLowerCase().includes(taxNoKeyword)) && (!taxCodeKeyword || item.classification.toLowerCase().includes(taxCodeKeyword));
   });
   return `
-    <div class="section-heading">
-      <h2>税号兜底开票项目配置</h2>
-      <p>当订单商品行未命中商品大类规则时，系统根据订单对应门店使用的开票税号，匹配该税号配置的兜底开票项目、税收分类编码和税率。</p>
-    </div>
-    <div class="filter-bar">
+    <section class="application-setting-block fallback-switch-block">
+      <div class="application-setting-head"><div><h2>品牌兜底开票</h2><p>开启后，商品规则未命中时先使用税号单独配置，再回落品牌统一配置。</p></div><button class="button ${config.fallbackEnabled ? "danger" : "primary"}" type="button" data-action="toggle-brand-fallback">${config.fallbackEnabled ? "关闭" : "开启"}</button></div>
+      <span class="tag ${config.fallbackEnabled ? "success" : ""}">${config.fallbackEnabled ? "已开启" : "已关闭"}</span>
+    </section>
+    ${config.fallbackEnabled ? `
+      <section class="application-setting-block brand-fallback-block">
+        <div class="application-setting-head"><div><h2>品牌统一兜底配置</h2><p>当前开票税号没有单独配置时，使用本配置。</p></div><div>${config.brandFallback ? `<button class="button" data-action="edit-brand-fallback">编辑</button><button class="button link danger-text" data-action="delete-brand-fallback">删除</button>` : `<button class="button primary" data-action="edit-brand-fallback">添加配置</button>`}</div></div>
+        ${config.brandFallback ? `<dl class="application-detail-list"><div><dt>兜底开票项目</dt><dd>${escapeHtml(config.brandFallback.itemName || "-")}</dd></div><div><dt>${brand.country === "MY" ? "Classification Code" : "税收分类编码"}</dt><dd>${escapeHtml(config.brandFallback.classification || "-")}</dd></div><div><dt>${brand.country === "MY" ? "Classification Name" : "税收分类简称"}</dt><dd>${escapeHtml(taxShortName(config.brandFallback))}</dd></div><div><dt>税种</dt><dd>${escapeHtml(taxTypeDisplayName(brand, config.brandFallback))}</dd></div><div><dt>税率</dt><dd>${escapeHtml(config.brandFallback.taxRate || "-")}</dd></div><div><dt>优惠政策</dt><dd>${escapeHtml(preferentialPolicyDisplay(config.brandFallback))}</dd></div><div><dt>更新时间</dt><dd>${escapeHtml(config.brandFallback.updatedAt || "-")}</dd></div></dl>` : `<div class="empty-state compact"><div><strong>暂未配置品牌统一兜底项目</strong></div></div>`}
+      </section>
+      <div class="section-heading"><h2>税号单独兜底配置</h2><p>仅为与品牌统一配置不同的税号增加例外；命中后整条覆盖品牌配置。</p></div>
+      <div class="filter-bar">
       <label class="field"><span>税号</span><input id="settingsFallbackTaxNoInput" value="${escapeHtml(state.settingsFallbackTaxNoKeyword)}" placeholder="请输入税号" /></label>
       <label class="field"><span>税收分类编码</span><input id="settingsFallbackTaxCodeInput" value="${escapeHtml(state.settingsFallbackTaxCodeKeyword)}" placeholder="请输入税收分类编码" /></label>
       <div class="filter-actions">
         <button class="button primary" type="button" data-action="search-settings-fallbacks">查询</button>
         <button class="button" type="button" data-action="reset-settings-fallbacks">清空</button>
       </div>
-    </div>
-    <div class="table-toolbar actions-only">
-      <div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增规则</button></div>
-    </div>
-    <div class="table-scroll">
-      <table class="data-table wide">
-        <thead><tr><th>税号</th><th>纳税人名称</th><th>大类别名</th><th>税收分类编码</th><th>税收分类简称</th><th>税种</th><th>税率</th><th>优惠政策</th><th>更新时间</th><th>操作</th></tr></thead>
-        <tbody>
-          ${
-            fallbacks.length
-              ? fallbacks
-                  .map((item) => {
-                    const company = customer.companies.find((companyItem) => companyItem.id === item.companyId);
-                    return `
-                      <tr>
-                        <td>${escapeHtml(companyTaxNumber(company) || "-")}</td>
-                        <td>${escapeHtml(company?.legalName || "-")}</td>
-                        <td>${escapeHtml(item.itemName || "-")}</td>
-                        <td>${escapeHtml(item.classification)}</td>
-                        <td>${escapeHtml(taxShortName(item))}</td>
-                        <td>${escapeHtml(taxTypeDisplayName(brand, item))}</td>
-                        <td>${escapeHtml(item.taxRate)}</td>
-                        <td>${escapeHtml(preferentialPolicyDisplay(item))}</td>
-                        <td>${escapeHtml(item.updatedAt || "-")}</td>
-                        <td>
-                          <button class="button link" type="button" data-action="edit-fallback" data-id="${item.id}">编辑</button>
-                          <button class="button link danger-text" type="button" data-action="delete-fallback" data-id="${item.id}">删除</button>
-                        </td>
-                      </tr>
-                    `;
-                  })
-                  .join("")
-              : `<tr><td class="empty-cell" colspan="10">暂无规则</td></tr>`
-          }
-        </tbody>
-      </table>
-    </div>
+      </div>
+      <div class="table-toolbar actions-only"><div class="inline-actions"><button class="button" type="button" data-action="open-invoice-import-records" data-kind="fallbacks">批量导入</button><button class="button primary" type="button" data-action="create-fallback">新增税号配置</button></div></div>
+      <div class="table-scroll">
+        <table class="data-table wide">
+          <thead><tr><th>税号</th><th>纳税人名称</th><th>兜底开票项目</th><th>税收分类编码</th><th>税收分类简称</th><th>税种</th><th>税率</th><th>优惠政策</th><th>更新时间</th><th>操作</th></tr></thead>
+          <tbody>${fallbacks.length ? fallbacks.map((item) => { const company = customer.companies.find((companyItem) => companyItem.id === item.companyId); return `<tr><td>${escapeHtml(companyTaxNumber(company) || "-")}</td><td>${escapeHtml(company?.legalName || "-")}</td><td>${escapeHtml(item.itemName || "-")}</td><td>${escapeHtml(item.classification)}</td><td>${escapeHtml(taxShortName(item))}</td><td>${escapeHtml(taxTypeDisplayName(brand, item))}</td><td>${escapeHtml(item.taxRate)}</td><td>${escapeHtml(preferentialPolicyDisplay(item))}</td><td>${escapeHtml(item.updatedAt || "-")}</td><td><button class="button link" data-action="edit-fallback" data-id="${item.id}">编辑</button><button class="button link danger-text" data-action="delete-fallback" data-id="${item.id}">删除</button></td></tr>`; }).join("") : `<tr><td class="empty-cell" colspan="10">暂无税号单独配置</td></tr>`}</tbody>
+        </table>
+      </div>
+    ` : `<div class="notice"><span>兜底开票已关闭，已有配置将保留但不参与开票。</span></div>`}
   `;
 }
 
@@ -4080,7 +4270,8 @@ function applicationLogoMarkup(brand, logo, className = "") {
   if (logo?.source === "custom" && String(logo.dataUrl || "").startsWith("data:image/")) {
     return `<span class="application-brand-logo ${className} custom"><img src="${escapeHtml(logo.dataUrl)}" alt="${escapeHtml(brand.name)} Logo" /></span>`;
   }
-  return `<span class="application-brand-logo ${className}">${escapeHtml(brand.logoHorizontalText || brand.name)}</span>`;
+  const selectedScheme = ensureBrandLogoSets(brand).find((scheme) => scheme.id === (logo?.schemeId || ensureBrandInvoiceConfig(brand).application.logoSchemeId)) || ensureBrandLogoSets(brand).find((scheme) => scheme.isDefault);
+  return `<span class="application-brand-logo ${className}">${escapeHtml(selectedScheme ? brandLogoPreviewText(brand, selectedScheme, true) : brand.logoHorizontalText || brand.name)}</span>`;
 }
 
 function sanitizeApplicationNoteHtml(value) {
@@ -4091,6 +4282,25 @@ function sanitizeApplicationNoteHtml(value) {
 
 function applicationPhonePreview(brand, application) {
   const themeClass = application.theme === "black-white" ? "theme-black-white" : application.theme === "red-white" ? "theme-red-white" : "";
+  if (brand.country === "MY") {
+    return `
+      <aside class="application-phone-preview ${themeClass}" aria-label="马来西亚 e-Invoice 申请页预览">
+        <div class="application-phone-statusbar"><span>15:57</span><span>••• ︶▯</span></div>
+        <div class="application-phone-nav"><span>×</span><div><h3>e-Invoice Request</h3><p>Malaysia</p></div><span>•••</span></div>
+        ${applicationLogoMarkup(brand, application.logo, "application-phone-brand-logo")}
+        <div class="application-phone-content">
+          <div class="application-phone-order-grid"><div><span>Order Amount</span><strong>RM 128.00</strong></div><div><span>Invoice Amount</span><strong>RM 128.00</strong></div></div>
+          <div class="application-phone-order-no"><span>Order No.</span><strong>MY240901001</strong></div>
+          <div class="application-phone-form-label">Buyer Type</div>
+          <div class="application-phone-radio-row"><span><i class="checked"></i>Individual</span><span><i></i>Business</span></div>
+          <div class="application-phone-input-row full"><span>Full Name *</span></div>
+          <div class="application-phone-input-row full"><span>Identification No. *</span></div>
+          <div class="application-phone-input-row full"><span>Email *</span></div>
+          <button class="application-phone-submit" type="button">Submit e-Invoice Request</button>
+          <div class="application-phone-bottom-title">e-Invoice Information</div>
+        </div>
+      </aside>`;
+  }
   return `
     <aside class="application-phone-preview ${themeClass}" aria-label="开票申请页预览">
       <div class="application-phone-statusbar"><span>15:57</span><span>••• ︶▯</span></div>
@@ -4120,6 +4330,32 @@ function applicationPhonePreview(brand, application) {
       </div>
     </aside>
   `;
+}
+
+function renderInvoiceApplicationPageSettings(brand, application) {
+  const draft = applicationDraftFor(brand, application);
+  const pageModel = state.applicationEditMode.page ? draft : application;
+  const pageActions = state.applicationEditMode.page
+    ? `<button class="button" type="button" data-action="cancel-application-section" data-section="page">取消</button><button class="button primary" type="button" data-action="save-application-section" data-section="page">保存</button>`
+    : `<button class="button" type="button" data-action="edit-application-section" data-section="page">编辑</button>`;
+  const logoSets = ensureBrandLogoSets(brand);
+  const activeLogo = logoSets.find((scheme) => scheme.id === application.logoSchemeId) || logoSets.find((scheme) => scheme.isDefault);
+  return `
+    <section class="application-setting-block invoice-application-page-settings">
+      <div class="application-setting-head"><h2>开票申请页设置</h2><div class="application-setting-actions">${pageActions}</div></div>
+      <div class="application-entry-grid">
+        <div class="application-entry-form">
+          ${state.applicationEditMode.page ? `
+            <label class="application-form-field"><strong>页面样式</strong><select id="applicationPageStyle"><option value="经典">经典</option></select></label>
+            <div class="application-theme-group"><strong>主题色</strong><div><button class="application-theme-chip ${pageModel.theme === "black-gold" ? "active" : ""}" data-action="select-application-theme" data-theme="black-gold"><span class="application-swatch black-gold"></span>黑金</button><button class="application-theme-chip ${pageModel.theme === "black-white" ? "active" : ""}" data-action="select-application-theme" data-theme="black-white"><span class="application-swatch black-white"></span>黑白</button><button class="application-theme-chip ${pageModel.theme === "red-white" ? "active" : ""}" data-action="select-application-theme" data-theme="red-white"><span class="application-swatch red-white"></span>红白</button></div></div>
+            <label class="application-form-field"><strong>品牌 Logo</strong><select id="applicationLogoSchemeId">${logoSets.map((scheme) => `<option value="${scheme.id}" ${pageModel.logoSchemeId === scheme.id ? "selected" : ""}>${escapeHtml(scheme.name)}（横版 Logo）</option>`).join("")}</select><small>从品牌 Logo 管理已有方案中选择，不在此单独上传。</small></label>
+            <div class="application-rich-label"><strong>开票说明</strong><div class="application-editor-toolbar"><button type="button" data-action="application-rich-command" data-command="bold">B</button><button type="button" data-action="application-rich-command" data-command="insertUnorderedList">列表</button><button type="button" data-action="application-rich-command" data-command="removeFormat">清除格式</button></div><div class="application-rich-editor" id="applicationNoteEditor" contenteditable="true">${sanitizeApplicationNoteHtml(pageModel.noteHtml)}</div></div>
+            ${state.applicationErrors.page ? `<p class="application-field-error">${escapeHtml(state.applicationErrors.page)}</p>` : ""}
+          ` : `<dl class="application-detail-list"><div><dt>页面样式</dt><dd>${escapeHtml(application.pageStyle)}</dd></div><div><dt>主题色</dt><dd>${escapeHtml(applicationThemeNames[application.theme] || "-")}</dd></div><div><dt>品牌 Logo</dt><dd>${escapeHtml(activeLogo?.name || "默认版本")}</dd></div><div><dt>开票说明</dt><dd class="application-note-view">${sanitizeApplicationNoteHtml(application.noteHtml)}</dd></div></dl>`}
+        </div>
+        ${applicationPhonePreview(brand, pageModel)}
+      </div>
+    </section>`;
 }
 
 function renderApplicationSettings(brand, application) {
@@ -4818,6 +5054,7 @@ function confirmCompanyOpen() {
     return;
   }
   company.invoiceStatus = "opened";
+  company.invoiceMode = "MyInvois";
   company.taxpayerExists = true;
   company.openAttempted = true;
   company.openedAt = nowText();
@@ -5783,6 +6020,75 @@ function saveMalaysiaFallback() {
   showToast(existing ? "税号兜底开票规则已更新" : "税号兜底开票规则已新增");
 }
 
+function requestToggleBrandFallback() {
+  const config = ensureBrandInvoiceConfig(currentBrand());
+  state.modalContext = { type: "toggle-brand-fallback" };
+  openModal({
+    title: config.fallbackEnabled ? "关闭品牌兜底开票" : "开启品牌兜底开票",
+    body: `<div class="notice warning"><span>${config.fallbackEnabled ? "关闭后，已有品牌和税号配置保留，但不参与开票。" : "开启后可再按需维护品牌统一配置或税号单独配置。"}</span></div>`,
+    actions: `<button class="button" data-action="close-modal">取消</button><button class="button primary" data-action="confirm-toggle-brand-fallback">确认</button>`,
+  });
+}
+
+function confirmToggleBrandFallback() {
+  const config = ensureBrandInvoiceConfig(currentBrand());
+  config.fallbackEnabled = !config.fallbackEnabled;
+  closeModal();
+  render();
+  showToast(config.fallbackEnabled ? "品牌兜底开票已开启" : "品牌兜底开票已关闭");
+}
+
+function openBrandFallbackEditor() {
+  const brand = currentBrand();
+  const config = ensureBrandInvoiceConfig(brand);
+  const model = config.brandFallback || {
+    itemName: "",
+    classification: "",
+    taxType: defaultTaxTypeCode(brand),
+    taxRate: brand.country === "MY" ? "10%" : "13%",
+    preferentialPolicy: "无",
+  };
+  state.modalContext = { type: "brand-fallback-editor" };
+  openModal({
+    title: config.brandFallback ? "编辑品牌统一兜底配置" : "添加品牌统一兜底配置",
+    drawer: true,
+    body: `<div class="form-grid"><label class="field required"><span>兜底开票项目</span><input id="brandFallbackItemName" value="${escapeHtml(model.itemName || "")}" /></label><label class="field required"><span>${brand.country === "MY" ? "Classification Code" : "税收分类编码"}</span><select id="brandFallbackClassification"><option value="">请选择</option>${activeClassificationCatalog().map((item) => `<option value="${item.code}" ${model.classification === item.code ? "selected" : ""}>${item.code} · ${escapeHtml(classificationDisplayName(item))}</option>`).join("")}</select></label><label class="field required"><span>税种</span><select id="brandFallbackTaxType">${taxTypeOptionsForBrand(brand, model.taxType)}</select></label><label class="field required"><span>税率</span><select id="brandFallbackTaxRate">${taxRateOptionsForBrand(brand, model.taxType, model.taxRate)}</select></label><label class="field required"><span>优惠政策</span><select id="brandFallbackPreferentialPolicy">${preferentialPolicyOptionsForBrand(brand, model.preferentialPolicy)}</select></label><div class="field-message full" id="brandFallbackError"></div></div>`,
+    actions: `<button class="button" data-action="close-modal">取消</button><button class="button primary" data-action="save-brand-fallback">保存</button>`,
+  });
+}
+
+function saveBrandFallback() {
+  const brand = currentBrand();
+  const classification = document.getElementById("brandFallbackClassification")?.value || "";
+  const classificationItem = activeClassificationCatalog().find((item) => item.code === classification);
+  const taxType = document.getElementById("brandFallbackTaxType")?.value || "";
+  const taxRate = document.getElementById("brandFallbackTaxRate")?.value || "";
+  const itemName = document.getElementById("brandFallbackItemName")?.value.trim() || "";
+  const preferentialPolicy = document.getElementById("brandFallbackPreferentialPolicy")?.value || "无";
+  if (!itemName || !classificationItem || !isValidTaxTypeRate(brand, taxType, taxRate)) {
+    const error = document.getElementById("brandFallbackError");
+    if (error) error.textContent = "请完整填写兜底开票项目、税收分类、税种和税率";
+    return;
+  }
+  const config = ensureBrandInvoiceConfig(brand);
+  config.brandFallback = { itemName, classification, taxShortName: classificationDisplayName(classificationItem), classificationName: classificationDisplayName(classificationItem), taxType, taxTypeName: taxTypeNameForBrand(brand, taxType), taxRate, preferentialPolicy, updatedAt: nowText() };
+  closeModal();
+  render();
+  showToast("品牌统一兜底配置已保存");
+}
+
+function requestDeleteBrandFallback() {
+  state.modalContext = { type: "delete-brand-fallback" };
+  openModal({ title: "删除品牌统一兜底配置", body: `<div class="notice warning"><span>删除后，未命中税号单独配置的订单将无法使用品牌兜底。</span></div>`, actions: `<button class="button" data-action="close-modal">取消</button><button class="button danger" data-action="confirm-delete-brand-fallback">删除</button>` });
+}
+
+function confirmDeleteBrandFallback() {
+  ensureBrandInvoiceConfig(currentBrand()).brandFallback = null;
+  closeModal();
+  render();
+  showToast("品牌统一兜底配置已删除");
+}
+
 function openFallbackEditor(fallbackId = "") {
   const brand = currentBrand();
   const config = ensureBrandInvoiceConfig(brand);
@@ -5802,7 +6108,7 @@ function openFallbackEditor(fallbackId = "") {
   const taxTypeCode = fallback.taxType || defaultTaxTypeCode(brand);
   state.modalContext = { type: "fallback-editor", id: fallbackId };
   openModal({
-    title: fallbackId ? "编辑税号兜底开票项目" : "新增税号兜底开票项目",
+    title: fallbackId ? "编辑税号单独兜底配置" : "新增税号单独兜底配置",
     drawer: true,
     className: "fallback-editor-drawer",
     body: `
@@ -5814,7 +6120,7 @@ function openFallbackEditor(fallbackId = "") {
           <div class="tax-code-suggestions hidden" id="fallbackTaxpayerSuggestions" role="listbox"></div>
         </label>
         <label class="field required"><span>纳税人名称</span><input id="fallbackTaxpayerName" value="${escapeHtml(selectedCompany?.legalName || "")}" placeholder="按税号带出" readonly /></label>
-        <label class="field required"><span>大类别名</span><input id="fallbackItemName" value="${escapeHtml(fallback.itemName)}" placeholder="请输入大类别名" /></label>
+        <label class="field required"><span>兜底开票项目</span><input id="fallbackItemName" value="${escapeHtml(fallback.itemName)}" placeholder="请输入兜底开票项目" /></label>
         <label class="field required tax-classification-combobox">
           <span>税收分类编码</span>
           <input id="fallbackClassification" value="${escapeHtml(fallback.classification)}" placeholder="请输入税收分类编码" autocomplete="off" aria-controls="fallbackTaxCodeSuggestions" aria-autocomplete="list" />
@@ -5856,7 +6162,7 @@ function saveFallback() {
     return;
   }
   if (!values.itemName || !values.classification || !values.taxType || !values.taxRate) {
-    error.textContent = "请完整填写大类别名、税收分类编码、税种和税率";
+    error.textContent = "请完整填写兜底开票项目、税收分类编码、税种和税率";
     return;
   }
   if (!matchedTaxClassification) {
@@ -5904,7 +6210,7 @@ function deleteFallback(fallbackId) {
   state.modalContext = { type: "fallback-delete", id: fallbackId };
   openModal({
     title: "删除税号兜底开票项目",
-    body: `<div class="notice warning"><span>确认删除“大类别名：${escapeHtml(fallback.itemName)}”的兜底配置？删除后可重新新增。</span></div>`,
+    body: `<div class="notice warning"><span>确认删除“${escapeHtml(fallback.itemName)}”的税号单独配置？删除后将回落使用品牌统一兜底配置。</span></div>`,
     actions: `<button class="button" type="button" data-action="close-modal">取消</button><button class="button danger" type="button" data-action="confirm-delete-fallback">删除</button>`,
   });
 }
@@ -6151,19 +6457,24 @@ function readApplicationDraftFromDom() {
   const maxCount = document.getElementById("applicationSelfReissueMaxCount");
   const validDays = document.getElementById("applicationSelfReissueValidDays");
   const pageStyle = document.getElementById("applicationPageStyle");
+  const logoSchemeId = document.getElementById("applicationLogoSchemeId");
   const noteEditor = document.getElementById("applicationNoteEditor");
   if (qrDays) draft.qrDays = qrDays.value;
   if (enabled) draft.selfReissueEnabled = enabled.checked;
   if (maxCount) draft.selfReissueMaxCount = maxCount.value;
   if (validDays) draft.selfReissueValidDays = validDays.value;
   if (pageStyle) draft.pageStyle = pageStyle.value;
+  if (logoSchemeId) {
+    draft.logoSchemeId = logoSchemeId.value;
+    draft.logo = { source: "brand", fileName: "", dataUrl: "", schemeId: logoSchemeId.value };
+  }
   if (noteEditor) draft.noteHtml = sanitizeApplicationNoteHtml(noteEditor.innerHTML);
 }
 
 function applicationSectionFields(section) {
   if (section === "qr") return ["qrDays"];
   if (section === "selfReissue") return ["selfReissueEnabled", "selfReissueMaxCount", "selfReissueValidDays"];
-  return ["pageStyle", "theme", "note", "noteHtml", "logo"];
+  return ["pageStyle", "theme", "note", "noteHtml", "logo", "logoSchemeId"];
 }
 
 function resetApplicationDraftSection(section) {
@@ -6237,6 +6548,45 @@ function saveApplicationSection(section) {
     page: "开票申请页设置已保存",
   };
   showToast(messages[section]);
+}
+
+function toggleSpecialInvoice() {
+  const application = ensureBrandInvoiceConfig(currentBrand()).application;
+  application.specialInvoiceEnabled = !application.specialInvoiceEnabled;
+  render();
+  showToast(application.specialInvoiceEnabled ? "自助申请专票已开启" : "自助申请专票已关闭");
+}
+
+function setDiscountMode(mode) {
+  if (!["separate", "net"].includes(mode)) return;
+  ensureBrandInvoiceConfig(currentBrand()).application.discountMode = mode;
+  render();
+  showToast("折扣金额开票方式已更新");
+}
+
+function editDevelopmentSettings() {
+  state.developmentEditing = true;
+  render();
+}
+
+function cancelDevelopmentSettings() {
+  state.developmentEditing = false;
+  render();
+}
+
+function saveDevelopmentSettings() {
+  const status = document.getElementById("callbackStatus")?.value.trim() || "";
+  const detail = document.getElementById("callbackDetail")?.value.trim() || "";
+  const validUrl = (value) => !value || /^https:\/\/[^\s/]+(?:\/.*)?$/i.test(value);
+  if (!validUrl(status) || !validUrl(detail)) {
+    const error = document.getElementById("callbackError");
+    if (error) error.textContent = "回调地址必须是完整的 HTTPS 地址";
+    return;
+  }
+  ensureBrandInvoiceConfig(currentBrand()).callbacks = { status, detail };
+  state.developmentEditing = false;
+  render();
+  showToast("商户回调地址已保存");
 }
 
 function handleApplicationLogoFile(file) {
@@ -6320,25 +6670,11 @@ app.addEventListener("click", (event) => {
     render();
   }
   if (action === "confirm-product-open") confirmProductOpen();
-  if (action === "open-einvoice-settings") {
-    const customer = currentCustomer();
-    if (!customer.productOpen) {
-      showToast("请先开通客户电子发票产品");
-      return;
-    }
-    state.currentBrandId = "";
-    state.settingsView = "brand-list";
-    state.settingsTab = "stores";
-    resetApplicationEditorState();
-    state.view = "einvoice-settings";
-    render();
-  }
   if (action === "create-company") openCompanyEditor();
   if (action === "edit-company") openCompanyEditor(target.dataset.id);
   if (action === "open-company-detail") {
     state.currentCompanyId = target.dataset.id;
     state.companyTab = "master";
-    state.companyFunctionView = "list";
     state.companyBranchCountryKeyword = "";
     state.companyBranchNameKeyword = "";
     state.companyBranchRegistrationKeyword = "";
@@ -6353,7 +6689,6 @@ app.addEventListener("click", (event) => {
   }
   if (action === "company-tab") {
     state.companyTab = target.dataset.tab;
-    if (state.companyTab === "function") state.companyFunctionView = "list";
     render();
   }
   if (action === "search-company-branches") {
@@ -6388,19 +6723,6 @@ app.addEventListener("click", (event) => {
   }
   if (action === "open-company-store-picker") openCompanyStorePicker();
   if (action === "request-remove-company-store") openRemoveCompanyStoreConfirm(target.dataset.id);
-  if (action === "open-company-invoice-feature") {
-    const company = currentCompany();
-    if (company.country === "MY") {
-      openCompanyInvoice();
-    } else {
-      state.companyFunctionView = "invoice";
-      render();
-    }
-  }
-  if (action === "back-company-function-list") {
-    state.companyFunctionView = "list";
-    render();
-  }
   if (action === "back-customer-detail") {
     state.view = "customer-detail";
     state.customerTab = target.dataset.tab || "basic";
@@ -6467,14 +6789,16 @@ app.addEventListener("click", (event) => {
     state.settingsTab = "stores";
     state.itemNameSourceEditing = false;
     resetApplicationEditorState();
+    state.view = "einvoice-settings";
     render();
   }
   if (action === "back-brand-settings-list") {
-    state.currentBrandId = "";
-    state.settingsView = "brand-list";
+    state.settingsView = "brand-detail";
     state.settingsTab = "stores";
     state.itemNameSourceEditing = false;
     resetApplicationEditorState();
+    state.view = "brand-detail";
+    state.brandTab = "products";
     render();
   }
   if (action === "back-brand-invoice-settings" || action === "back-invoice-import-rule") {
@@ -6492,7 +6816,8 @@ app.addEventListener("click", (event) => {
     render();
   }
   if (action === "settings-tab") {
-    if (state.settingsTab === "application" && target.dataset.tab !== "application") resetApplicationEditorState();
+    if (["application", "function"].includes(state.settingsTab) && target.dataset.tab !== state.settingsTab) resetApplicationEditorState();
+    if (state.settingsTab === "development" && target.dataset.tab !== "development") state.developmentEditing = false;
     state.settingsTab = target.dataset.tab;
     state.itemNameSourceEditing = false;
     render();
@@ -6558,32 +6883,26 @@ app.addEventListener("click", (event) => {
   if (action === "download-invoice-import-template") showToast(`${invoiceImportRuleLabel(currentBrand())}导入模板已下载`);
   if (action === "download-invoice-import-check-report") showToast("文件检查报告已下载");
   if (action === "download-invoice-import-execution-report") showToast("任务执行报告已下载");
-  if (action === "toggle-store-invoice") {
-    const store = currentBrand().stores.find((item) => item.id === target.dataset.id);
-    if (store) {
-      if (!store.invoiceEnabled && currentBrand().country === "MY") {
-        const company = currentCustomer().companies.find((item) => item.id === store.companyId);
-        if (!company || company.country !== "MY" || company.invoiceStatus !== "opened" || !company.taxpayerExists || !company.licenses?.TIN) {
-          showToast("请先为门店关联已开通电子发票且具有有效 TIN 的马来西亚公司");
-          return;
-        }
-      }
-      store.invoiceEnabled = !store.invoiceEnabled;
-      store.updatedAt = nowText();
-      render();
-      showToast(store.invoiceEnabled ? "门店开票已启用" : "门店开票已关闭");
-    }
-  }
+  if (action === "open-store-invoice-company") openStoreInvoiceCompanyEditor(target.dataset.id);
+  if (action === "toggle-store-invoice") requestToggleStoreInvoice(target.dataset.id);
   if (action === "create-rule") openRuleEditor();
   if (action === "edit-rule") openRuleEditor(target.dataset.id);
   if (action === "create-fallback") openFallbackEditor();
   if (action === "edit-fallback") openFallbackEditor(target.dataset.id);
   if (action === "delete-fallback") deleteFallback(target.dataset.id);
+  if (action === "toggle-brand-fallback") requestToggleBrandFallback();
+  if (action === "edit-brand-fallback") openBrandFallbackEditor();
+  if (action === "delete-brand-fallback") requestDeleteBrandFallback();
   if (action === "create-payment") openPaymentEditor();
   if (action === "edit-payment") openPaymentEditor(target.dataset.id);
   if (action === "edit-application-section") editApplicationSection(target.dataset.section);
   if (action === "cancel-application-section") cancelApplicationSection(target.dataset.section);
   if (action === "save-application-section") saveApplicationSection(target.dataset.section);
+  if (action === "toggle-special-invoice") toggleSpecialInvoice();
+  if (action === "set-discount-mode") setDiscountMode(target.dataset.mode);
+  if (action === "edit-development-settings") editDevelopmentSettings();
+  if (action === "cancel-development-settings") cancelDevelopmentSettings();
+  if (action === "save-development-settings") saveDevelopmentSettings();
   if (action === "select-application-theme") {
     readApplicationDraftFromDom();
     state.applicationDraft.theme = target.dataset.theme;
@@ -6701,6 +7020,8 @@ modalRoot.addEventListener("click", (event) => {
   }
   if (action === "confirm-company-store-picker") confirmCompanyStorePicker();
   if (action === "confirm-remove-company-store") confirmRemoveCompanyStore();
+  if (action === "save-store-invoice-company") saveStoreInvoiceCompany();
+  if (action === "confirm-toggle-store-invoice") confirmToggleStoreInvoice();
   if (action === "confirm-company-open") confirmCompanyOpen();
   if (action === "save-brand") saveBrand();
   if (action === "save-brand-logo-scheme") saveBrandLogoScheme();
@@ -6715,6 +7036,9 @@ modalRoot.addEventListener("click", (event) => {
   if (action === "save-rule") saveRule();
   if (action === "save-fallback") saveFallback();
   if (action === "confirm-delete-fallback") confirmDeleteFallback();
+  if (action === "confirm-toggle-brand-fallback") confirmToggleBrandFallback();
+  if (action === "save-brand-fallback") saveBrandFallback();
+  if (action === "confirm-delete-brand-fallback") confirmDeleteBrandFallback();
   if (action === "save-payment") savePayment();
 });
 
@@ -6795,6 +7119,9 @@ modalRoot.addEventListener("change", (event) => {
   if (event.target.id === "fallbackTaxType") {
     syncMalaysiaTaxTypeFields("fallback");
   }
+  if (event.target.id === "brandFallbackTaxType") {
+    syncMalaysiaTaxTypeFields("brandFallback");
+  }
   if (event.target.id === "companyCountry") {
     const previousCountry = state.companyDraft.country;
     readCompanyDraftFromForm();
@@ -6867,6 +7194,11 @@ app.addEventListener("change", (event) => {
   }
   if (event.target.id === "applicationPageStyle" && state.applicationDraft) {
     state.applicationDraft.pageStyle = event.target.value;
+  }
+  if (event.target.id === "applicationLogoSchemeId" && state.applicationDraft) {
+    state.applicationDraft.logoSchemeId = event.target.value;
+    state.applicationDraft.logo = { source: "brand", fileName: "", dataUrl: "", schemeId: event.target.value };
+    render();
   }
   if (event.target.id === "applicationSelfReissueEnabled" && state.applicationDraft) {
     readApplicationDraftFromDom();

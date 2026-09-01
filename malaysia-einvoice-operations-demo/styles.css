@@ -3421,6 +3421,54 @@ input[readonly] {
   font-size: 12px;
 }
 
+.brand-product-management {
+  padding: 24px;
+}
+
+.brand-invoice-product-card {
+  max-width: 680px;
+}
+
+.brand-invoice-product-card .product-card-head > div p {
+  margin: 6px 0 0;
+  color: #777;
+}
+
+.brand-product-card-body {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 48px;
+}
+
+.brand-invoice-settings-title {
+  padding: 20px 24px 4px;
+  border-bottom: 0;
+}
+
+.brand-invoice-settings-title h1 {
+  font-size: 20px;
+}
+
+.store-invoice-settings-table .actions {
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.fallback-switch-block,
+.brand-fallback-block,
+.development-settings,
+.invoice-application-page-settings {
+  margin: 20px 24px;
+}
+
+.discount-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 @media (max-width: 1280px) {
   .legacy-filter-grid {
     grid-template-columns: repeat(3, minmax(180px, 1fr));
