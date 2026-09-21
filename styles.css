@@ -1036,6 +1036,15 @@ fieldset.field input {
   cursor: pointer;
 }
 
+.qr-preview-button {
+  justify-self: center;
+  width: auto;
+  min-height: 36px;
+  margin: 12px auto 0;
+  padding: 6px 20px;
+  font-size: 14px;
+}
+
 .progress-query-link {
   justify-self: center;
   min-height: 36px;

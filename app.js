@@ -1,11 +1,31 @@
 const params = new URLSearchParams(location.search);
 const AUTO_REFRESH_INTERVAL_MS = 10_000;
-const AUTHORIZATION_FALLBACK_MESSAGE = "需企业法人或财务负责人使用微信授权开通。";
+const AUTHORIZATION_FALLBACK_MESSAGE = "需企业法人或微信商户管理员使用微信授权开通。";
 const TENCENT_ABILITIES = [
   "BASE_ABILITY",
   "REAL_ESTATE_ABILITY",
   "REFINED_OIL_ABILITY",
 ];
+const ABILITY_LABELS = {
+  BASE_ABILITY: "基础开票能力",
+  REFINED_OIL_ABILITY: "成品油开票能力",
+  REAL_ESTATE_ABILITY: "不动产租赁开票能力",
+};
+
+function resolveOpeningAbilities(entryParams, industryCode) {
+  if (entryParams.has("fapiao_ability_type_list")) {
+    const supplied = entryParams.getAll("fapiao_ability_type_list")
+      .flatMap((value) => value.split(",")).map((value) => value.trim());
+    if (!supplied.length || supplied.some((value) => !TENCENT_ABILITIES.includes(value))) {
+      return { requestedAbilities: [], abilityError: "传入的开票能力无效，请联系申请方确认" };
+    }
+    return { requestedAbilities: [...new Set(supplied)], abilityError: "" };
+  }
+  return {
+    requestedAbilities: [industryCode === "003016" ? "REFINED_OIL_ABILITY" : "BASE_ABILITY"],
+    abilityError: "",
+  };
+}
 const TAXPAYER_TYPE_LABELS = {
   GENERAL: "一般纳税人",
   SMALL_SCALE: "小规模纳税人",
@@ -18,6 +38,8 @@ const TENCENT_PROCESSING_STATUS_META = {
   BILLING_PERSON_REGISTER_PENDING: "请商户法定代表人或财务负责人按腾讯页面指引完成开票员设置",
   BILLING_PERSON_CONFIRMED_PENDING: "请开票员按腾讯页面指引完成授权",
   SECURITY_SETTING_PENDING: "请商户法定代表人或财务负责人按腾讯页面指引设置开票安全验证有效期",
+  INTERNAL_PROCESSING: "授权已完成，正在完成开通配置，请稍后查询。",
+  DESCRIPTION_MISSING: "正在处理，请稍后查询。",
 };
 
 const TENCENT_FAILED_STATUS_META = {
@@ -37,6 +59,14 @@ const TENCENT_FAILED_STATUS_META = {
     description: "商户使用的数电服务商资源已过期",
     reason: "当前数电服务商资源已超过有效期，请联系数电服务商处理",
   },
+  AUTHORIZE_FAILED: {
+    description: "开票能力授权失败",
+    reason: "请根据渠道指引处理后重新授权",
+  },
+  DESCRIPTION_MISSING: {
+    description: "开通失败",
+    reason: "开通失败，暂未获取到失败原因，请稍后查询或联系客服。",
+  },
 };
 
 let autoRefreshTimer = null;
@@ -45,19 +75,21 @@ function buildInviteRequest(state) {
   return {
     operationType: "AUTH_BINDING",
     fapiaoMode: "TENCENT_DIGITAL_TAX",
-    abilities: TENCENT_ABILITIES,
+    abilities: [...state.requestedAbilities],
     subMchid: state.wechatMerchantNo,
     inviteCode: `INV-${state.applicationNo}-${state.inviteAttempt}`,
-    inviteChannel: "WECHAT_SHOP",
   };
 }
 
 function createInitialDemoState() {
   const scenario = params.get("scenario") || "normal";
   const applicationNo = params.get("application_no") || "WXSHOP202607220001";
+  const industryCode = params.get("industry_code") || "OTHER";
   const state = {
     merchantNo: params.get("merchant_no") || "1905827611",
     applicationNo,
+    industryCode,
+    ...resolveOpeningAbilities(params, industryCode),
     scenario,
     bridge: params.get("bridge") || "available",
     view: "wechat-shop-home",
@@ -75,6 +107,7 @@ function createInitialDemoState() {
     inviteStatus: "idle",
     accessStatus: "not_started",
     abilities: {},
+    backendReady: false,
     currentChannel: "ORIGINAL",
     tencentStatusCode: "AUTHORIZATION_PENDING",
     failureStatusCode: "",
@@ -93,6 +126,8 @@ function createInitialDemoState() {
     retryDialogOpen: false,
   };
 
+  if (state.abilityError) return state;
+
   if (state.scenario === "resume-opening") {
     Object.assign(state, {
       taxpayerType: "GENERAL",
@@ -107,8 +142,9 @@ function createInitialDemoState() {
       taxpayerType: "GENERAL",
       inviteStatus: "success",
       accessStatus: "success",
-      abilities: Object.fromEntries(TENCENT_ABILITIES.map((ability) => [ability, "AUTHORIZED"])),
+      abilities: Object.fromEntries(state.requestedAbilities.map((ability) => [ability, "AUTHORIZED"])),
       currentChannel: "TENCENT_LEQI",
+      backendReady: true,
     });
     state.inviteRequest = buildInviteRequest(state);
   }
@@ -119,11 +155,9 @@ function createInitialDemoState() {
       inviteStatus: "opening",
       accessStatus: "tax_processing",
       tencentStatusCode: "APPROVAL_PENDING",
-      abilities: {
-        BASE_ABILITY: "AUTHORIZED",
-        REAL_ESTATE_ABILITY: "AUTHORIZED",
-        REFINED_OIL_ABILITY: "PROCESSING",
-      },
+      abilities: Object.fromEntries(state.requestedAbilities.map((ability, index, list) => [
+        ability, index === list.length - 1 ? "PROCESSING" : "AUTHORIZED",
+      ])),
     });
     state.inviteRequest = buildInviteRequest(state);
   }
@@ -228,6 +262,12 @@ async function enterTencentOpening({ launchAfterCreate = false } = {}) {
     return;
   }
   stopAutoRefresh();
+  if (window.demoState.abilityError) {
+    window.demoState.inviteStatus = "blocked";
+    window.demoState.error = window.demoState.abilityError;
+    render();
+    return;
+  }
   window.demoState.inviteStatus = "loading";
   window.demoState.error = "";
   render();
@@ -266,6 +306,7 @@ function createTencentInvite() {
   window.demoState.accessStatus = "merchant_action_required";
 
   if (window.demoState.scenario === "invite-failed") {
+    window.demoState.inviteRequest = null;
     applyFailedStatus("MCH_INVITE_FAILED");
     return;
   }
@@ -277,7 +318,9 @@ function createTencentInvite() {
 function hasCompletedTencentOpening() {
   return window.demoState.inviteStatus === "success"
     && window.demoState.accessStatus === "success"
-    && TENCENT_ABILITIES.every((ability) => window.demoState.abilities[ability] === "AUTHORIZED");
+    && window.demoState.backendReady
+    && window.demoState.requestedAbilities.length > 0
+    && window.demoState.requestedAbilities.every((ability) => window.demoState.abilities[ability] === "AUTHORIZED");
 }
 
 function switchTencentChannelIfComplete() {
@@ -322,7 +365,7 @@ function returnFromGuide() {
   const returnView = window.demoState.returnView || "invoice-confirmation";
   window.demoState.view = returnView;
   window.demoState.returnView = "invoice-confirmation";
-  if (returnView === "tencent-opening" && window.demoState.inviteStatus === "opening") {
+  if (returnView === "tencent-opening" && canQueryTencentProgress()) {
     queryTencentProgress({ source: "guide-return" });
   }
   render();
@@ -477,7 +520,7 @@ function renderNoBusinessLicense() {
 
 function openingStatusMeta() {
   if (hasCompletedTencentOpening()) return { code: "success", label: "开通成功" };
-  if (window.demoState.inviteStatus === "failed") return { code: "failed", label: "开通失败" };
+  if (["failed", "blocked"].includes(window.demoState.inviteStatus)) return { code: "failed", label: "开通失败" };
   if (window.demoState.inviteStatus === "opening" || window.demoState.inviteStatus === "loading") {
     return { code: "opening", label: "开通中" };
   }
@@ -552,13 +595,14 @@ function renderTencentOpeningSection() {
           <div class="info-row"><span>企业名称</span><strong>${window.demoState.license.companyName}</strong></div>
           <div class="info-row"><span>统一社会信用代码</span><strong>${window.demoState.license.taxpayerId}</strong></div>
           <div class="info-row"><span>微信商户号</span><strong>${window.demoState.wechatMerchantNo || "--"}</strong></div>
+          <div class="info-row"><span>开通能力</span><strong>${window.demoState.requestedAbilities.map((ability) => ABILITY_LABELS[ability]).join("、") || "--"}</strong></div>
         </div>
       </div>
     </section>`;
 }
 
 function renderTencentProgressQueryAction() {
-  if (window.demoState.inviteStatus !== "opening" || hasCompletedTencentOpening()) return "";
+  if (!canQueryTencentProgress() || hasCompletedTencentOpening()) return "";
   return `
     <button class="progress-query-link" data-action="complete-authorization">
       我已开通，更新进度
@@ -685,15 +729,20 @@ function showToast(message) {
   }, 2200);
 }
 
+function canQueryTencentProgress() {
+  return Boolean(window.demoState.inviteRequest)
+    && ["opening", "failed"].includes(window.demoState.inviteStatus);
+}
+
 function queryTencentProgress({ source = "auto" } = {}) {
   if (window.demoState.view !== "tencent-opening"
-    || window.demoState.inviteStatus !== "opening") return;
+    || !canQueryTencentProgress()) return;
   window.demoState.queryCount += 1;
   window.demoState.lastQuerySource = source;
 }
 
 function startAutoRefresh() {
-  if (autoRefreshTimer || window.demoState.inviteStatus !== "opening") return;
+  if (autoRefreshTimer || !canQueryTencentProgress()) return;
   window.demoState.autoRefreshActive = true;
   autoRefreshTimer = window.setInterval(() => {
     queryTencentProgress({ source: "auto" });
@@ -708,7 +757,7 @@ function stopAutoRefresh() {
 
 function syncAutoRefresh() {
   const shouldRefresh = window.demoState.view === "tencent-opening"
-    && window.demoState.inviteStatus === "opening"
+    && canQueryTencentProgress()
     && !hasCompletedTencentOpening();
   if (shouldRefresh) startAutoRefresh();
   else stopAutoRefresh();
@@ -734,8 +783,9 @@ function applySimulatedResult(result) {
     window.demoState.simulatorStage = "";
     window.demoState.inviteStatus = "success";
     window.demoState.accessStatus = "success";
+    window.demoState.backendReady = true;
     window.demoState.abilities = Object.fromEntries(
-      TENCENT_ABILITIES.map((ability) => [ability, "AUTHORIZED"]),
+      window.demoState.requestedAbilities.map((ability) => [ability, "AUTHORIZED"]),
     );
     switchTencentChannelIfComplete();
     render();
@@ -751,6 +801,16 @@ function applyProcessingStatus(statusCode) {
   window.demoState.inviteStatus = "opening";
   window.demoState.accessStatus = "tax_processing";
   window.demoState.tencentStatusCode = statusCode;
+  window.demoState.failureStatusCode = "";
+  window.demoState.failureDescription = "";
+  window.demoState.failureReason = "";
+  window.demoState.backendReady = false;
+  if (statusCode === "INTERNAL_PROCESSING") {
+    window.demoState.accessStatus = "success";
+    window.demoState.abilities = Object.fromEntries(
+      window.demoState.requestedAbilities.map((ability) => [ability, "AUTHORIZED"]),
+    );
+  }
   render();
 }
 
@@ -763,11 +823,22 @@ function applyFailedStatus(statusCode) {
   window.demoState.failureStatusCode = statusCode;
   window.demoState.failureDescription = failure.description;
   window.demoState.failureReason = failure.reason;
+  window.demoState.backendReady = false;
+  if (statusCode === "AUTHORIZE_FAILED") {
+    const ability = window.demoState.requestedAbilities.at(-1);
+    window.demoState.abilities = Object.fromEntries(
+      window.demoState.requestedAbilities.map((value) => [value, value === ability ? "AUTHORIZE_FAILED" : "AUTHORIZED"]),
+    );
+    window.demoState.failureReason = `${ABILITY_LABELS[ability]}：${failure.reason}`;
+  }
   render();
 }
 
-function openQrPreview() {
-  if (window.demoState.inviteStatus !== "opening") return;
+async function openQrPreview() {
+  if (window.demoState.inviteStatus === "idle") {
+    await enterTencentOpening();
+  }
+  if (!canQueryTencentProgress() || window.demoState.failureStatusCode === "DISABLED") return;
   window.demoState.qrPreviewOpen = true;
   render();
 }
@@ -787,10 +858,18 @@ function closeRetryDialog() {
   render();
 }
 
-function confirmRetry() {
+async function confirmRetry() {
   window.demoState.retryDialogOpen = false;
-  window.demoState.inviteAttempt += 1;
-  window.demoState.inviteRequest = null;
+  if (window.demoState.inviteRequest) {
+    if (window.demoState.failureStatusCode === "DISABLED") {
+      window.demoState.qrPreviewOpen = false;
+      window.demoState.inviteAttempt += 1;
+      await enterTencentOpening({ launchAfterCreate: true });
+      return;
+    }
+    launchWechatMiniProgram();
+    return;
+  }
   window.demoState.scenario = "normal";
   window.demoState.inviteStatus = "idle";
   window.demoState.accessStatus = "not_started";
@@ -903,8 +982,8 @@ function renderRetryDialog() {
   return `
     <div class="dialog-backdrop">
       <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="retry-title">
-        <h2 id="retry-title">重新发起开通</h2>
-        <p>请根据失败原因处理完成后再次发起。</p>
+        <h2 id="retry-title">${window.demoState.inviteRequest ? "重新授权" : "重试开通"}</h2>
+        <p>${window.demoState.inviteRequest ? "请先根据失败原因处理，再重试。" : "授权邀请未生成，请处理失败原因后重试。"}</p>
         <div class="dialog-actions">
           <button class="action-button secondary" data-action="close-retry-dialog">取消</button>
           <button class="action-button primary" data-action="confirm-retry">确认重试</button>
@@ -963,7 +1042,7 @@ function renderPageActions() {
   if (window.demoState.inviteStatus === "failed") {
     return `
       <div class="page-actions single">
-        <button class="action-button primary" data-action="open-retry-dialog">重试</button>
+        <button class="action-button primary" data-action="open-retry-dialog">${window.demoState.inviteRequest ? "重新授权" : "重试"}</button>
       </div>`;
   }
 
@@ -992,6 +1071,7 @@ function renderPageContent() {
       <div class="opening-sections">
         ${renderAuthorizationGuideBanner()}
         ${renderTencentOpeningSection()}
+        ${(window.demoState.inviteStatus === "idle" || canQueryTencentProgress()) && window.demoState.wechatMerchantNo && window.demoState.failureStatusCode !== "DISABLED" ? '<button class="action-button secondary qr-preview-button" type="button" data-action="open-qr-preview">查看授权二维码</button>' : ""}
         ${renderTencentProgressQueryAction()}
       </div>`;
   }
