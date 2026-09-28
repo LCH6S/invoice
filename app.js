@@ -26,11 +26,6 @@ function resolveOpeningAbilities(entryParams, industryCode) {
     abilityError: "",
   };
 }
-const TAXPAYER_TYPE_LABELS = {
-  GENERAL: "一般纳税人",
-  SMALL_SCALE: "小规模纳税人",
-};
-
 const TENCENT_PROCESSING_STATUS_META = {
   APPROVAL_PENDING: "请等待当地税务机关审批",
   ACCESS_CONFIRMED_PENDING: "请商户法定代表人或财务负责人按腾讯页面指引完成接入确认",
@@ -95,8 +90,6 @@ function createInitialDemoState() {
     view: "wechat-shop-home",
     returnView: "invoice-confirmation",
     simulatedMerchantType: "",
-    taxpayerType: "",
-    taxpayerError: "",
     license: {
       companyName: "上海申城能源有限公司",
       taxpayerId: "91310106MA1FY7KX2P",
@@ -121,7 +114,6 @@ function createInitialDemoState() {
     wechatLaunchCount: 0,
     error: "",
     toast: "",
-    taxpayerSelectorOpen: false,
     qrPreviewOpen: false,
     retryDialogOpen: false,
   };
@@ -130,7 +122,6 @@ function createInitialDemoState() {
 
   if (state.scenario === "resume-opening") {
     Object.assign(state, {
-      taxpayerType: "GENERAL",
       inviteStatus: "opening",
       accessStatus: "merchant_action_required",
     });
@@ -139,7 +130,6 @@ function createInitialDemoState() {
 
   if (state.scenario === "resume-success") {
     Object.assign(state, {
-      taxpayerType: "GENERAL",
       inviteStatus: "success",
       accessStatus: "success",
       abilities: Object.fromEntries(state.requestedAbilities.map((ability) => [ability, "AUTHORIZED"])),
@@ -151,7 +141,6 @@ function createInitialDemoState() {
 
   if (state.scenario === "partial-success") {
     Object.assign(state, {
-      taxpayerType: "GENERAL",
       inviteStatus: "opening",
       accessStatus: "tax_processing",
       tencentStatusCode: "APPROVAL_PENDING",
@@ -174,11 +163,9 @@ function renderNavBar() {
     "invoice-confirmation": "开通数电票",
     "tencent-opening": "腾讯乐企联用",
     "no-business-license": "开通数电票",
-    "taxpayer-guide": "纳税人类型说明",
     "authorization-guide": "授权操作说明",
   };
-  const isGuide = window.demoState.view === "taxpayer-guide"
-    || window.demoState.view === "authorization-guide";
+  const isGuide = window.demoState.view === "authorization-guide";
   const action = isGuide ? "return-from-guide" : "leave-opening-flow";
   const hidesBackButton = window.demoState.view === "wechat-shop-home"
     || window.demoState.view === "tencent-opening";
@@ -194,10 +181,6 @@ function renderNavBar() {
       <div class="nav-title">${titles[window.demoState.view] || "开通数电票"}</div>
       <span class="nav-placeholder" aria-hidden="true"></span>
     </header>`;
-}
-
-function selectedTaxpayerType() {
-  return window.demoState.taxpayerType;
 }
 
 function selectSimulatedMerchantType(value) {
@@ -221,7 +204,6 @@ function enterDigitalInvoiceFlow() {
 function returnToWechatShop() {
   stopAutoRefresh();
   window.demoState.simulatorStage = "";
-  window.demoState.taxpayerSelectorOpen = false;
   window.demoState.qrPreviewOpen = false;
   window.demoState.retryDialogOpen = false;
   window.demoState.view = "wechat-shop-home";
@@ -237,20 +219,7 @@ function acknowledgeOpeningNotice() {
   render();
 }
 
-function validateTaxpayerType() {
-  const value = selectedTaxpayerType();
-  if (value) {
-    window.demoState.taxpayerType = value;
-    window.demoState.taxpayerError = "";
-    return true;
-  }
-  window.demoState.taxpayerError = "请选择纳税人类型";
-  showToast("请选择纳税人类型");
-  return false;
-}
-
 function confirmInvoiceInformation() {
-  if (!validateTaxpayerType()) return;
   window.demoState.view = "tencent-opening";
   stopAutoRefresh();
   render();
@@ -337,27 +306,8 @@ function currentOpeningMessage() {
 }
 
 function openGuide(view) {
-  window.demoState.taxpayerSelectorOpen = false;
   window.demoState.returnView = window.demoState.view;
   window.demoState.view = view;
-  render();
-}
-
-function openTaxpayerSelector() {
-  window.demoState.taxpayerSelectorOpen = true;
-  render();
-}
-
-function closeTaxpayerSelector() {
-  window.demoState.taxpayerSelectorOpen = false;
-  render();
-}
-
-function selectTaxpayerType(value) {
-  if (!TAXPAYER_TYPE_LABELS[value]) return;
-  window.demoState.taxpayerType = value;
-  window.demoState.taxpayerError = "";
-  window.demoState.taxpayerSelectorOpen = false;
   render();
 }
 
@@ -369,36 +319,6 @@ function returnFromGuide() {
     queryTencentProgress({ source: "guide-return" });
   }
   render();
-}
-
-function renderTaxpayerGuide() {
-  return `
-    <section class="guide-page taxpayer-guide-page">
-      <div class="taxpayer-guide-intro">
-        <h1>如何查看纳税人类型</h1>
-        <ol class="taxpayer-guide-steps">
-          <li><span>1、</span><p>登录当地电子税务局后台</p></li>
-          <li><span>2、</span><p>点击“税务数字账户”</p></li>
-          <li><span>3、</span><p>纳税人类型会展示在税号旁边</p></li>
-        </ol>
-      </div>
-      <div class="taxpayer-guide-images" aria-label="纳税人类型查看图示">
-        <img
-          src="./assets/taxpayer-guide/01-login-electronic-tax-bureau.png"
-          alt="登录当地电子税务局后台图示"
-        >
-        <img
-          src="./assets/taxpayer-guide/02-open-tax-digital-account.png"
-          alt="点击税务数字账户图示"
-          loading="lazy"
-        >
-        <img
-          src="./assets/taxpayer-guide/03-find-taxpayer-type.png"
-          alt="在税号旁查看纳税人类型图示"
-          loading="lazy"
-        >
-      </div>
-    </section>`;
 }
 
 function renderOpeningNotice() {
@@ -528,8 +448,6 @@ function openingStatusMeta() {
 }
 
 function renderInvoiceInfoSection() {
-  const taxpayerTypeLabel = TAXPAYER_TYPE_LABELS[window.demoState.taxpayerType] || "请选择";
-  const taxpayerTypeClass = window.demoState.taxpayerType ? "" : " placeholder";
   return `
     <section class="opening-card invoice-info-section">
       <div class="section-header">
@@ -538,18 +456,7 @@ function renderInvoiceInfoSection() {
       <div class="info-list">
         <div class="info-row"><span>企业名称</span><strong>${window.demoState.license.companyName}</strong></div>
         <div class="info-row"><span>统一社会信用代码</span><strong>${window.demoState.license.taxpayerId}</strong></div>
-        <button class="info-row taxpayer-type-row" type="button" data-action="open-taxpayer-selector" aria-haspopup="dialog" aria-expanded="${window.demoState.taxpayerSelectorOpen}">
-          <span>纳税人类型</span>
-          <strong class="select-value${taxpayerTypeClass}">
-            ${taxpayerTypeLabel}
-            <i class="bi bi-b-arrow-right" aria-hidden="true"></i>
-          </strong>
-        </button>
-        <div class="taxpayer-guide-helper">
-          <a href="#taxpayer-guide" data-action="open-taxpayer-guide">如何查看纳税人类型？</a>
-        </div>
       </div>
-      ${window.demoState.taxpayerError ? `<p class="field-error">${window.demoState.taxpayerError}</p>` : ""}
     </section>`;
 }
 
@@ -940,26 +847,6 @@ function renderSimulator() {
     </div>`;
 }
 
-function renderTaxpayerSelector() {
-  if (!window.demoState.taxpayerSelectorOpen) return "";
-  return `
-    <div class="taxpayer-sheet-backdrop" data-action="close-taxpayer-selector">
-      <section class="taxpayer-sheet" role="dialog" aria-modal="true" aria-labelledby="taxpayer-sheet-title">
-        <h2 id="taxpayer-sheet-title">选择纳税人类型</h2>
-        <div class="taxpayer-sheet-options">
-          ${Object.entries(TAXPAYER_TYPE_LABELS)
-            .map(([value, label]) => `
-              <button class="taxpayer-sheet-option${window.demoState.taxpayerType === value ? " selected" : ""}" data-action="select-taxpayer-type" data-value="${value}">
-                <span>${label}</span>
-                ${window.demoState.taxpayerType === value ? "<strong>当前选择</strong>" : ""}
-              </button>`)
-            .join("")}
-        </div>
-        <button class="taxpayer-sheet-cancel" data-action="close-taxpayer-selector">取消</button>
-      </section>
-    </div>`;
-}
-
 function renderQrPreview() {
   if (!window.demoState.qrPreviewOpen) return "";
   return `
@@ -1060,7 +947,6 @@ function renderPageContent() {
   if (window.demoState.view === "wechat-shop-home") return renderWechatShopHome();
   if (window.demoState.view === "opening-notice") return renderOpeningNotice();
   if (window.demoState.view === "no-business-license") return renderNoBusinessLicense();
-  if (window.demoState.view === "taxpayer-guide") return renderTaxpayerGuide();
   if (window.demoState.view === "authorization-guide") return renderAuthorizationGuide();
   if (window.demoState.view === "invoice-confirmation") {
     return `<div class="opening-sections">${renderInvoiceInfoSection()}</div>`;
@@ -1086,7 +972,6 @@ function render() {
       <div class="page${pageActions ? " has-actions" : ""}">
         ${renderPageContent()}
         ${pageActions}
-        ${renderTaxpayerSelector()}
         ${renderSimulator()}
         ${renderQrPreview()}
         ${renderRetryDialog()}
@@ -1107,13 +992,6 @@ document.addEventListener("click", (event) => {
   if (action === "return-to-wechat-shop") returnToWechatShop();
   if (action === "acknowledge-opening-notice") acknowledgeOpeningNotice();
   if (action === "confirm-invoice-information") confirmInvoiceInformation();
-  if (action === "open-taxpayer-selector") openTaxpayerSelector();
-  if (action === "select-taxpayer-type") selectTaxpayerType(trigger.dataset.value);
-  if (action === "close-taxpayer-selector"
-    && (trigger === event.target || trigger.classList.contains("taxpayer-sheet-cancel"))) {
-    closeTaxpayerSelector();
-  }
-  if (action === "open-taxpayer-guide") openGuide("taxpayer-guide");
   if (action === "open-authorization-guide") openGuide("authorization-guide");
   if (action === "return-from-guide") returnFromGuide();
   if (action === "authorize") authorizeTencentOpening();
